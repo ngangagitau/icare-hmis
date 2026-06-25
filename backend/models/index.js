@@ -1,4 +1,5 @@
 const { createTables } = require('../db/seedDatabase');
+const Finance = require('./Finance');
 const UserPostgres = require('./UserPostgres');
 
 const ensureAllTables = async () => {
@@ -6,6 +7,7 @@ const ensureAllTables = async () => {
 };
 
 module.exports = {
+  Finance,
   UserPostgres,
   ensureAllTables,
 };

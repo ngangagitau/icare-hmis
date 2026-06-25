@@ -1,0 +1,3 @@
+const createModuleModel = require('../lib/genericModuleModel');
+
+module.exports = createModuleModel('GeneralLedger', {}, 'general-ledger');

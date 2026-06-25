@@ -231,6 +231,22 @@ const createTables = async () => {
     `);
     console.log('✓ billing table created');
 
+    // 5b. Finance table
+    await query(`
+      CREATE TABLE IF NOT EXISTS finance (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        finance_id VARCHAR(100) UNIQUE NOT NULL,
+        type VARCHAR(100) NOT NULL,
+        data JSONB DEFAULT '{}'::jsonb,
+        status VARCHAR(50) DEFAULT 'Active',
+        created_by UUID REFERENCES users(id),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS idx_finance_type_status_created_at ON finance (type, status, created_at DESC);`);
+    console.log('✓ finance table created');
+
     // 6. Inventory table
     await query(`
       CREATE TABLE IF NOT EXISTS inventory (
@@ -663,7 +679,7 @@ const createTables = async () => {
     await query(`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);`);
 
     console.log('\n✅ All tables created successfully!');
-    console.log('📊 Total tables created: 26 core tables + system tables\n');
+    console.log('📊 Total tables created: 27 core tables + system tables\n');
 
   } catch (error) {
     console.error('❌ Error creating tables:', error.message);

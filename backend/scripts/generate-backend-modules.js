@@ -4,6 +4,7 @@ const path = require('path');
 const backendDir = path.resolve(__dirname, '..');
 const routesDir = path.join(backendDir, 'routes');
 const modelsDir = path.join(backendDir, 'models');
+const modelsOnly = process.argv.includes('--models-only');
 
 const modules = [
   { model: 'AccountsReceivable', route: 'accountsReceivable', slug: 'accounts-receivable' },
@@ -99,7 +100,9 @@ modules.forEach((item) => {
   }
 
   fs.writeFileSync(modelPath, modelContent, { encoding: 'utf8' });
-  fs.writeFileSync(routePath, routeTemplate(item.slug), { encoding: 'utf8' });
+  if (!modelsOnly) {
+    fs.writeFileSync(routePath, routeTemplate(item.slug), { encoding: 'utf8' });
+  }
 });
 
-console.log('Backend module scaffolding created for all stubs.');
+console.log(modelsOnly ? 'Backend model scaffolding created.' : 'Backend module scaffolding created for all stubs.');
