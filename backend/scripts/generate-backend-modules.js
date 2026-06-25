@@ -32,9 +32,9 @@ const modules = [
   { model: 'Triage', route: 'triage', slug: 'triage' },
 ];
 
-const commonModelTemplate = (modelName, customFields = '') => `const createModuleModel = require('../lib/genericModuleModel');
+const commonModelTemplate = (modelName, moduleSlug, customFields = '{}') => `const createModuleModel = require('../lib/genericModuleModel');
 
-module.exports = createModuleModel('${modelName}', ${customFields});
+module.exports = createModuleModel('${modelName}', ${customFields}, '${moduleSlug}');
 `;
 
 const adminModelTemplate = () => `const createModuleModel = require('../lib/genericModuleModel');
@@ -58,7 +58,7 @@ module.exports = createModuleModel('Admin', {
       actions: [String],
     },
   ],
-});
+}, 'admin');
 `;
 
 const superAdminModelTemplate = () => `const createModuleModel = require('../lib/genericModuleModel');
@@ -78,20 +78,19 @@ module.exports = createModuleModel('SuperAdmin', {
   },
   privileges: [String],
   assignedModules: [String],
-});
+}, 'super-admin');
 `;
 
-const routeTemplate = (modelName, moduleSlug) => `const createModuleRouter = require('./genericModuleRoutes');
-const Model = require('../models/${modelName}');
+const routeTemplate = (moduleSlug) => `const createModuleRouter = require('./genericModuleRoutes');
 
-module.exports = createModuleRouter(Model, '${moduleSlug}');
+module.exports = createModuleRouter('${moduleSlug}');
 `;
 
 modules.forEach((item) => {
   const modelPath = path.join(modelsDir, `${item.model}.js`);
   const routePath = path.join(routesDir, `${item.route}.js`);
 
-  let modelContent = commonModelTemplate(item.model, '{}');
+  let modelContent = commonModelTemplate(item.model, item.slug);
   if (item.model === 'Admin') {
     modelContent = adminModelTemplate();
   }
@@ -100,7 +99,7 @@ modules.forEach((item) => {
   }
 
   fs.writeFileSync(modelPath, modelContent, { encoding: 'utf8' });
-  fs.writeFileSync(routePath, routeTemplate(item.model, item.slug), { encoding: 'utf8' });
+  fs.writeFileSync(routePath, routeTemplate(item.slug), { encoding: 'utf8' });
 });
 
 console.log('Backend module scaffolding created for all stubs.');

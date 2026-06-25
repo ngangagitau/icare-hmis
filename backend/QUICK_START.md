@@ -4,7 +4,7 @@
 
 ### Prerequisites
 - Node.js v16+
-- MongoDB running locally or remote connection
+- PostgreSQL running locally or reachable via `DATABASE_URL`
 
 ### Steps
 
@@ -150,13 +150,13 @@ backend/
 
 ## Troubleshooting
 
-### MongoDB Connection Error
+### PostgreSQL Connection Error
 ```
-✗ MongoDB connection error: connect ECONNREFUSED
+✗ Database initialization error: connect ECONNREFUSED
 ```
-**Solution**: Ensure MongoDB is running
+**Solution**: Ensure PostgreSQL is running and `DATABASE_URL` is correct
 ```bash
-mongod  # Start MongoDB
+psql --version
 ```
 
 ### Port Already in Use
@@ -241,6 +241,6 @@ For production deployment guide, see: **DEPLOYMENT_GUIDE.md**
 - Check logs: `npm run dev` shows real-time server output
 - Review API_DOCUMENTATION.md for endpoint details
 - Check DEPLOYMENT_GUIDE.md for setup issues
-- Verify MongoDB is running: `mongo --version`
+- Verify PostgreSQL tools are installed: `psql --version`
 
 Happy coding! 🚀

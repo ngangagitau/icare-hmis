@@ -16,7 +16,7 @@
 ### Prerequisites
 - Node.js (v16 or higher)
 - npm or yarn
-- MongoDB (v4.4 or higher)
+- PostgreSQL (v14 or higher recommended)
 - Git
 
 ### Installation Steps
@@ -42,21 +42,21 @@
    ```
    NODE_ENV=development
    PORT=5000
-   MONGO_URI=mongodb://localhost:27017/icare-hmis
+   DATABASE_URL=postgresql://postgres:password@localhost:5432/icare_hmis
    JWT_SECRET=your_development_secret_key
    CLIENT_URL=http://localhost:5173
    ```
 
-5. **Ensure MongoDB is running**
+5. **Ensure PostgreSQL is running**
    ```bash
    # On Windows
-   mongod
+   psql --version
    
    # On macOS (if installed via Homebrew)
-   brew services start mongodb-community
+   brew services start postgresql
    
    # On Linux
-   sudo systemctl start mongod
+   sudo systemctl start postgresql
    ```
 
 6. **Seed initial data (optional)**
@@ -93,13 +93,11 @@ The server will start on `http://localhost:5000`
    sudo apt-get install -y nodejs
    ```
 
-4. **Install MongoDB**
+4. **Install PostgreSQL**
    ```bash
-   wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | sudo apt-key add -
-   echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-5.0.list
    sudo apt-get update
-   sudo apt-get install -y mongodb-org
-   sudo systemctl start mongod
+   sudo apt-get install -y postgresql postgresql-contrib
+   sudo systemctl start postgresql
    ```
 
 5. **Clone Repository**
@@ -119,7 +117,7 @@ The server will start on `http://localhost:5000`
    ```
    NODE_ENV=production
    PORT=5000
-   MONGO_URI=mongodb://localhost:27017/icare-hmis-prod
+   DATABASE_URL=postgresql://postgres:password@localhost:5432/icare_hmis_prod
    JWT_SECRET=your_long_secure_production_secret_key
    JWT_EXPIRE=7d
    CLIENT_URL=https://your-domain.com
@@ -221,9 +219,9 @@ The server will start on `http://localhost:5000`
      --name icare-hmis \
      -p 5000:5000 \
      -e NODE_ENV=production \
-     -e MONGO_URI=mongodb://mongo:27017/icare-hmis \
+    -e DATABASE_URL=postgresql://postgres:postgres@postgres:5432/icare_hmis \
      -e JWT_SECRET=your_secret_key \
-     --link mongo:mongo \
+    --link postgres:postgres \
      icare-hmis-api:1.0.0
    ```
 
@@ -241,21 +239,23 @@ services:
       - '5000:5000'
     environment:
       NODE_ENV: production
-      MONGO_URI: mongodb://mongo:27017/icare-hmis
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/icare_hmis
       JWT_SECRET: ${JWT_SECRET}
       CLIENT_URL: https://your-domain.com
     depends_on:
-      - mongo
+      - postgres
     networks:
       - icare-network
     restart: unless-stopped
 
-  mongo:
-    image: mongo:5.0
+  postgres:
+    image: postgres:16
     volumes:
-      - mongo-data:/data/db
+      - postgres-data:/var/lib/postgresql/data
     environment:
-      MONGO_INITDB_DATABASE: icare-hmis
+      POSTGRES_DB: icare_hmis
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     networks:
       - icare-network
     restart: unless-stopped
@@ -275,7 +275,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  mongo-data:
+  postgres-data:
 
 networks:
   icare-network:
@@ -295,7 +295,7 @@ docker-compose up -d
 ```
 NODE_ENV=development
 PORT=5000
-MONGO_URI=mongodb://localhost:27017/icare-hmis
+DATABASE_URL=postgresql://postgres:password@localhost:5432/icare_hmis
 JWT_SECRET=dev_secret_key_change_in_production
 JWT_EXPIRE=30d
 CLIENT_URL=http://localhost:5173
@@ -307,7 +307,7 @@ RATE_LIMIT_WINDOW=15
 ```
 NODE_ENV=production
 PORT=5000
-MONGO_URI=mongodb://prod-server:27017/icare-hmis
+DATABASE_URL=postgresql://postgres:password@prod-server:5432/icare_hmis
 JWT_SECRET=your_very_long_secure_production_key_minimum_32_characters
 JWT_EXPIRE=7d
 CLIENT_URL=https://your-domain.com
@@ -323,34 +323,25 @@ SMTP_PASSWORD=your_email_password
 
 ## Database Setup
 
-### MongoDB Backup
+### PostgreSQL Backup
 
 ```bash
 # Backup database
-mongodump --db icare-hmis --out=/backups/icare-hmis-backup
+pg_dump "$DATABASE_URL" > /backups/icare-hmis-backup.sql
 
 # Restore database
-mongorestore --db icare-hmis /backups/icare-hmis-backup/icare-hmis
+psql "$DATABASE_URL" < /backups/icare-hmis-backup.sql
 ```
 
 ### Create Database Indexes
 
 ```javascript
-// Run in MongoDB shell
-use icare-hmis;
-
-// Patient indexes
-db.patients.createIndex({ patientId: 1 });
-db.patients.createIndex({ firstName: 1, lastName: 1 });
-db.patients.createIndex({ phone: 1 });
-
-// Appointment indexes
-db.appointments.createIndex({ appointmentDate: 1 });
-db.appointments.createIndex({ doctor: 1 });
-db.appointments.createIndex({ patient: 1 });
-
-// Billing indexes
-db.billings.createIndex({ billDate: 1 });
+-- Run in psql
+CREATE INDEX IF NOT EXISTS idx_patients_patient_id ON patients(patient_id);
+CREATE INDEX IF NOT EXISTS idx_patients_phone ON patients(phone);
+CREATE INDEX IF NOT EXISTS idx_appointments_patient_id ON appointments(patient_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_doctor_id ON appointments(doctor_id);
+CREATE INDEX IF NOT EXISTS idx_billing_patient_id ON billing(patient_id);
 db.billings.createIndex({ paymentStatus: 1 });
 
 // Medical records indexes
@@ -384,19 +375,19 @@ sudo tail -f /var/log/nginx/access.log
 sudo tail -f /var/log/nginx/error.log
 ```
 
-### MongoDB Monitoring
+### PostgreSQL Monitoring
 ```bash
-# Connect to MongoDB shell
-mongo
+# Connect to PostgreSQL
+psql "$DATABASE_URL"
 
 # Check database stats
-db.stats()
+\l+
 
-# Check collection stats
-db.patients.stats()
+# Check table stats
+\dt
 
 # Monitor active operations
-db.currentOp()
+SELECT pid, usename, state, query FROM pg_stat_activity;
 ```
 
 ---
@@ -408,10 +399,10 @@ Already enabled in server.js with `compression()` middleware
 
 ### Database Connection Pooling
 ```javascript
-// Already configured in database.js
-mongoose.connect(process.env.MONGO_URI, {
-  maxPoolSize: 10,
-  minPoolSize: 5,
+// Already configured in db/pg.js
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 10,
 });
 ```
 
@@ -439,13 +430,13 @@ lsof -i :5000
 kill -9 <PID>
 ```
 
-### MongoDB Connection Failed
+### PostgreSQL Connection Failed
 ```bash
-# Check MongoDB status
-systemctl status mongod
+# Check PostgreSQL status
+systemctl status postgresql
 
-# Restart MongoDB
-systemctl restart mongod
+# Restart PostgreSQL
+systemctl restart postgresql
 
 # Check connection string in .env
 ```
@@ -465,11 +456,11 @@ pm2 restart icare-hmis-api
 
 ### Database Performance Issues
 ```bash
-# Check MongoDB indexes
-db.patients.getIndexes()
+# Check PostgreSQL indexes
+\d patients
 
 # Analyze query performance
-db.patients.find(...).explain("executionStats")
+EXPLAIN ANALYZE SELECT * FROM patients;
 ```
 
 ### CORS Issues
@@ -481,7 +472,7 @@ db.patients.find(...).explain("executionStats")
 ## Scaling Considerations
 
 1. **Load Balancing**: Use Nginx for distributing requests
-2. **Database Replication**: Setup MongoDB replica sets
+2. **Database Replication**: Setup PostgreSQL replication or managed failover
 3. **Caching**: Implement Redis for frequently accessed data
 4. **CDN**: Use CDN for static assets
 5. **Horizontal Scaling**: Run multiple instances with PM2 Cluster mode
@@ -498,7 +489,7 @@ pm2 start server.js -i max --name "icare-hmis"
 - [ ] Change JWT_SECRET to a strong value
 - [ ] Enable HTTPS/SSL certificate
 - [ ] Configure firewall rules
-- [ ] Setup MongoDB authentication
+- [ ] Secure PostgreSQL credentials and network access
 - [ ] Enable rate limiting
 - [ ] Regular security updates
 - [ ] Setup automated backups

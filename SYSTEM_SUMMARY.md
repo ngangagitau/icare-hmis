@@ -19,7 +19,7 @@ Successfully built a comprehensive Hospital Management Information System (HMIS)
 ### Backend (Node.js + Express)
 - **Runtime**: Node.js
 - **Framework**: Express.js
-- **Database**: MongoDB with Mongoose
+- **Database**: PostgreSQL
 - **Authentication**: JWT (JSON Web Tokens)
 - **Security**: Helmet, CORS, Rate Limiting
 - **Validation**: Express Validator
@@ -225,7 +225,7 @@ icare-hmis/
     ├── routes/             # API endpoints
     ├── scripts/            # Database seeding
     ├── server.js           # Main server file
-    ├── database.js         # MongoDB connection
+    ├── db/                 # PostgreSQL connection and table setup
     ├── package.json        # Dependencies
     ├── .env               # Environment variables
     ├── README.md          # Backend documentation
@@ -276,9 +276,9 @@ npm run dev  # Frontend runs on http://localhost:5173
 ```
 
 ### Database
-Ensure MongoDB is running:
+Ensure PostgreSQL is running and `DATABASE_URL` is set:
 ```bash
-mongod
+psql --version
 ```
 
 ### Seed Sample Data
@@ -354,8 +354,8 @@ Authorization: Bearer <token_from_login>
 ### Backend
 - Node.js
 - Express.js
-- MongoDB
-- Mongoose
+- PostgreSQL
+- pg
 - JWT
 - bcryptjs
 - Helmet
@@ -366,7 +366,7 @@ Authorization: Bearer <token_from_login>
 - Git
 - VS Code
 - npm/yarn
-- MongoDB Compass (optional)
+- pgAdmin (optional)
 - Postman (for API testing)
 
 ---
@@ -377,7 +377,7 @@ Authorization: Bearer <token_from_login>
 - **Backend Response Time**: <100ms (average)
 - **Database Query**: Indexed for fast retrieval
 - **API Endpoints**: 40+ endpoints
-- **Database Collections**: 6 main collections
+- **Database Tables**: 26+ operational tables
 - **User Roles**: 7 different roles
 
 ---

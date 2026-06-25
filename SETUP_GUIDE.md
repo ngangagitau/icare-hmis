@@ -15,7 +15,7 @@ Your frontend and backend are now fully connected and ready for development!
 6. ✅ **Health Check Component** (`src/components/HealthCheck.tsx`) - Connection tester
 
 **Backend Updates:**
-1. ✅ **PostgreSQL Connection** - Switched from MongoDB
+1. ✅ **PostgreSQL Connection** - Configured as the active backend database
 2. ✅ **Database Initialized** - 26 tables created
 3. ✅ **CORS Configured** - Allows localhost:5173
 4. ✅ **JWT Support** - Ready for authentication

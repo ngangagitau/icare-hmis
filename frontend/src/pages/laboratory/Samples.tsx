@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 // --- Interfaces ---
 interface Sample {
-  _id: string; // Changed from 'id' to '_id' to match typical MongoDB IDs
+  _id: string; // The API currently exposes `_id` for record identifiers
   patientName: string; // Changed from 'patient' for clarity
   patientId: string; // Added patient ID
   testName: string; // Changed from 'test' for clarity

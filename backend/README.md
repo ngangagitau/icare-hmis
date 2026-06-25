@@ -1,6 +1,6 @@
 # iCare HMIS Backend API
 
-A comprehensive Hospital Management Information System (HMIS) backend built with Node.js, Express.js, and MongoDB.
+A comprehensive Hospital Management Information System (HMIS) backend built with Node.js, Express.js, and PostgreSQL.
 
 ## Features
 
@@ -17,7 +17,7 @@ A comprehensive Hospital Management Information System (HMIS) backend built with
 
 - **Runtime**: Node.js
 - **Framework**: Express.js
-- **Database**: MongoDB with Mongoose ODM
+- **Database**: PostgreSQL with the `pg` driver
 - **Authentication**: JWT (JSON Web Tokens)
 - **Validation**: Express Validator
 - **Security**: Helmet, CORS, Rate Limiting
@@ -26,7 +26,7 @@ A comprehensive Hospital Management Information System (HMIS) backend built with
 ## Prerequisites
 
 - Node.js (v16 or higher)
-- MongoDB (v4.4 or higher)
+- PostgreSQL (v14 or higher recommended)
 - npm or yarn
 
 ## Installation
@@ -44,7 +44,7 @@ A comprehensive Hospital Management Information System (HMIS) backend built with
 
 3. **Environment Setup**
    - Copy `.env` file and update the configuration values
-   - Ensure MongoDB is running on your system
+   - Ensure PostgreSQL is running and `DATABASE_URL` is configured
 
 4. **Start the development server**
    ```bash
@@ -160,7 +160,7 @@ The server will start on `http://localhost:5000`
 ```
 backend/
 ├── middleware/          # Authentication & authorization middleware
-├── models/             # Mongoose data models
+├── models/             # PostgreSQL-backed models
 ├── routes/             # API route handlers
 ├── config/             # Configuration files
 ├── scripts/            # Database seeding and utilities
@@ -183,7 +183,7 @@ npm run seed
 ## Deployment
 
 1. Set `NODE_ENV=production` in environment variables
-2. Update MongoDB connection string for production
+2. Update the PostgreSQL `DATABASE_URL` for production
 3. Configure proper JWT secret
 4. Set up reverse proxy (nginx recommended)
 5. Enable SSL/TLS certificates

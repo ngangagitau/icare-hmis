@@ -1,118 +1,157 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { BaseModel } = require('../db/BaseModel');
 const { query } = require('../db/pg');
 
-class User {
+const isHashedPassword = (value = '') => /^\$2[aby]\$/.test(String(value));
+
+class UserPostgres extends BaseModel {
+  static get tableName() {
+    return 'users';
+  }
+
+  static get columns() {
+    return {
+      ...BaseModel.columns,
+      username: 'username',
+      email: 'email',
+      password: 'password',
+      first_name: 'first_name',
+      last_name: 'last_name',
+      role: 'role',
+      department: 'department',
+      phone: 'phone',
+      is_active: 'is_active',
+      permissions: 'permissions',
+    };
+  }
+
+  static get tableDefinition() {
+    return {
+      id: 'UUID PRIMARY KEY DEFAULT gen_random_uuid()',
+      username: 'VARCHAR(255) UNIQUE NOT NULL',
+      email: 'VARCHAR(255) UNIQUE NOT NULL',
+      password: 'VARCHAR(255) NOT NULL',
+      first_name: 'VARCHAR(255)',
+      last_name: 'VARCHAR(255)',
+      role: "VARCHAR(50) DEFAULT 'user'",
+      department: 'VARCHAR(255)',
+      phone: 'VARCHAR(20)',
+      is_active: 'BOOLEAN DEFAULT true',
+      permissions: "JSONB DEFAULT '[]'",
+      created_at: 'TIMESTAMPTZ DEFAULT NOW()',
+      updated_at: 'TIMESTAMPTZ DEFAULT NOW()',
+    };
+  }
+
+  static getSelectSQL(includePassword = false) {
+    const columns = Object.values(this.columns).filter(
+      (column) => includePassword || column !== 'password'
+    );
+    return columns.join(', ');
+  }
+
   static async findByEmail(email) {
-    try {
-      const result = await query(
-        'SELECT * FROM users WHERE email = $1',
-        [email]
-      );
-      return result.rows[0] || null;
-    } catch (err) {
-      throw err;
-    }
+    return this.findOne({ email }).select('+password');
   }
 
-  static async findById(id) {
-    try {
-      const result = await query(
-        'SELECT * FROM users WHERE id = $1',
-        [id]
-      );
-      return result.rows[0] || null;
-    } catch (err) {
-      throw err;
-    }
+  static async create(data = {}) {
+    const user = new this({
+      username: data.username || data.email,
+      email: data.email,
+      password: data.password,
+      first_name: data.firstName || data.first_name || null,
+      last_name: data.lastName || data.last_name || null,
+      role: data.role || 'user',
+      department: data.department || null,
+      phone: data.phone || null,
+      is_active: data.isActive ?? data.is_active ?? true,
+      permissions: data.permissions || [],
+    });
+
+    return user.save();
   }
 
-  static async findOne(conditions) {
-    try {
-      const keys = Object.keys(conditions);
-      const values = Object.values(conditions);
-      const whereClause = keys.map((key, i) => `${key} = $${i + 1}`).join(' AND ');
-      
-      const result = await query(
-        `SELECT * FROM users WHERE ${whereClause}`,
-        values
-      );
-      return result.rows[0] || null;
-    } catch (err) {
-      throw err;
+  static _prepareUpdateData(data = {}) {
+    const prepared = {};
+
+    if (data.name && !data.first_name && !data.last_name) {
+      const [firstName = '', ...rest] = String(data.name).trim().split(/\s+/);
+      prepared.first_name = firstName || null;
+      prepared.last_name = rest.join(' ') || null;
     }
+
+    const mappings = {
+      username: 'username',
+      email: 'email',
+      password: 'password',
+      firstName: 'first_name',
+      lastName: 'last_name',
+      first_name: 'first_name',
+      last_name: 'last_name',
+      role: 'role',
+      department: 'department',
+      phone: 'phone',
+      isActive: 'is_active',
+      is_active: 'is_active',
+      permissions: 'permissions',
+    };
+
+    for (const [key, value] of Object.entries(data)) {
+      if (value === undefined || key === 'name') continue;
+      const mappedKey = mappings[key] || key;
+      prepared[mappedKey] = value;
+    }
+
+    return prepared;
   }
 
-  static async create(userData) {
-    try {
-      // Hash password
+  async save() {
+    const data = {
+      username: this.username || this.email,
+      email: this.email,
+      password: this.password,
+      first_name: this.first_name || null,
+      last_name: this.last_name || null,
+      role: this.role || 'user',
+      department: this.department || null,
+      phone: this.phone || null,
+      is_active: this.is_active ?? true,
+      permissions: this.permissions || [],
+    };
+
+    if (data.password && !isHashedPassword(data.password)) {
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(userData.password, salt);
-
-      const result = await query(
-        `INSERT INTO users (username, email, password, first_name, last_name, role, department, phone, is_active, permissions)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         RETURNING *`,
-        [
-          userData.email, // username
-          userData.email,
-          hashedPassword,
-          userData.firstName,
-          userData.lastName,
-          userData.role || 'user',
-          userData.department || '',
-          userData.phone || '',
-          userData.isActive !== false,
-          JSON.stringify(userData.permissions || [])
-        ]
-      );
-      return result.rows[0];
-    } catch (err) {
-      throw err;
+      data.password = await bcrypt.hash(data.password, salt);
+      this.password = data.password;
     }
-  }
 
-  static async update(id, updateData) {
-    try {
-      const updates = [];
-      const values = [];
-      let paramCount = 1;
-
-      for (const [key, value] of Object.entries(updateData)) {
-        const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-        updates.push(`${dbKey} = $${paramCount}`);
-        values.push(value);
-        paramCount++;
-      }
-
-      values.push(id);
-      const updateClause = updates.join(', ');
-
+    if (this.id) {
+      const columns = Object.keys(data);
+      const values = columns.map((column) => data[column]);
+      const setClause = columns.map((column, index) => `${column} = $${index + 1}`).join(', ');
+      values.push(this.id);
       const result = await query(
-        `UPDATE users SET ${updateClause}, updated_at = NOW() WHERE id = $${paramCount} RETURNING *`,
+        `UPDATE users SET ${setClause}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
         values
       );
-      return result.rows[0] || null;
-    } catch (err) {
-      throw err;
+      Object.assign(this, result.rows[0]);
+      return this;
     }
+
+    Object.assign(this, data);
+    return super.save();
+  }
+
+  async matchPassword(enteredPassword) {
+    return bcrypt.compare(enteredPassword, this.password);
+  }
+
+  getSignedJwtToken() {
+    return jwt.sign({ id: this.id }, process.env.JWT_SECRET || 'secret', {
+      expiresIn: process.env.JWT_EXPIRE || '24h',
+    });
   }
 }
 
-// Method to verify password
-async function matchPassword(plainPassword, hashedPassword) {
-  return await bcrypt.compare(plainPassword, hashedPassword);
-}
-
-// Method to generate JWT
-function getSignedJwtToken(userId) {
-  return jwt.sign(
-    { id: userId },
-    process.env.JWT_SECRET || 'secret',
-    { expiresIn: process.env.JWT_EXPIRE || '24h' }
-  );
-}
-
-module.exports = User;
-module.exports.matchPassword = matchPassword;
-module.exports.getSignedJwtToken = getSignedJwtToken;
+module.exports = UserPostgres;

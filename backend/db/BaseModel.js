@@ -390,4 +390,6 @@ class BaseModel {
   toJSON() {
     return { ...this };
   }
+}
+
 module.exports = { BaseModel, ModelQuery };
