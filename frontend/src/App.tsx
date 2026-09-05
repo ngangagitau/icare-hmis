@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ModuleProvider } from "@/contexts/ModuleContext";
@@ -93,8 +93,8 @@ import VitalsHistory from "./pages/triage/VitalsHistory";
 
 // Doctor submodules
 import IPD from "./pages/doctor/ipd";
-import MedicalHistory from "./pages/doctor/MedicalHistory";
-import DischargeSummary from "./pages/doctor/DischargeSummary";
+import PatientDetails from "./pages/doctor/PatientDetails";
+import IPDSubmodulePage from "./pages/doctor/IPDSubmodule";
 
 // Billing submodules
 import NewInvoice from "./pages/billing/Invoice";
@@ -273,6 +273,11 @@ const App = () => (
             {/* Doctor */}
             <Route path="/doctor" element={<DoctorModule />} />
             <Route path="/doctor/ipd" element={<IPD />} />
+            <Route path="/doctor/ipd/*" element={<IPD />} />
+            <Route path="/doctor/inpatient/:id" element={<PatientDetails />}>
+              <Route index element={<Navigate replace to="notes" />} />
+              <Route path=":submodule" element={<IPDSubmodulePage />} />
+            </Route>
 
             {/* Billing */}
             <Route path="/billing" element={<CashierBilling />} />

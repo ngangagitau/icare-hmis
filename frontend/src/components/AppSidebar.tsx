@@ -1,7 +1,7 @@
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { Activity } from "lucide-react";
-import { getModuleByPath } from "@/config/modules";
+import { getActiveModuleByPath } from "@/config/modules";
 import {
   Sidebar,
   SidebarContent,
@@ -19,7 +19,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
-  const activeModule = getModuleByPath(location.pathname);
+  const activeModule = getActiveModuleByPath(location.pathname);
 
   return (
     <Sidebar collapsible="icon" className="bg-card border-r border-border">

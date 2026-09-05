@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Search, Filter, Bed, Stethoscope, Calendar, Activity } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const admittedPatients = [
+export const admittedPatients = [
   { 
     id: "A-1001", 
     pid: "P-10234",
@@ -18,8 +18,22 @@ const admittedPatients = [
     bed: "A-12",
     admissionDate: "2026-03-10", 
     doctor: "Dr. Ochieng",
+    billingDoctor: "Dr. Ochieng",
+    treatmentTeam: "Ward Round Team A",
+    panel: "SHA REBATE",
+    uhid: "CHMD-26-17321",
+    patientCode: "SHA REBATE",
+    idProof: "Reg Info",
     diagnosis: "Hypertension / Diabetes",
-    status: "Stable"
+    status: "Stable",
+    vitals: {
+      temperature: "36.8°C",
+      pulse: "78 bpm",
+      bp: "132/84 mmHg",
+      bloodSugar: "6.2 mmol/L",
+      resp: "18 bpm",
+      spo2: "98%",
+    },
   },
   { 
     id: "A-1002", 
@@ -31,8 +45,22 @@ const admittedPatients = [
     bed: "S-05",
     admissionDate: "2026-03-11", 
     doctor: "Dr. Njeri",
+    billingDoctor: "Dr. Njeri",
+    treatmentTeam: "Surgical Unit",
+    panel: "SHA REBATE",
+    uhid: "CHMD-26-17321",
+    patientCode: "SHA REBATE",
+    idProof: "Reg Info",
     diagnosis: "Post-appendectomy",
-    status: "Recovering"
+    status: "Recovering",
+    vitals: {
+      temperature: "37.1°C",
+      pulse: "82 bpm",
+      bp: "118/72 mmHg",
+      bloodSugar: "5.6 mmol/L",
+      resp: "16 bpm",
+      spo2: "99%",
+    },
   },
   { 
     id: "A-1003", 
@@ -44,8 +72,22 @@ const admittedPatients = [
     bed: "ICU-03",
     admissionDate: "2026-03-12", 
     doctor: "Dr. Kipchoge",
+    billingDoctor: "Dr. Kipchoge",
+    treatmentTeam: "Critical Care Team",
+    panel: "SHA REBATE",
+    uhid: "CHMD-26-17321",
+    patientCode: "SHA REBATE",
+    idProof: "Reg Info",
     diagnosis: "Respiratory Distress",
-    status: "Critical"
+    status: "Critical",
+    vitals: {
+      temperature: "37.3°C",
+      pulse: "105 bpm",
+      bp: "118/76 mmHg",
+      bloodSugar: "7.8 mmol/L",
+      resp: "24 bpm",
+      spo2: "94%",
+    },
   },
 ];
 

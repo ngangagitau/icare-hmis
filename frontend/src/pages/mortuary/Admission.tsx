@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,18 +7,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
-const MortuaryAdmission = () => (
-  <div className="space-y-6">
-    <div>
-      <h1 className="text-2xl font-bold text-foreground">Mortuary Admission</h1>
-      <p className="text-muted-foreground text-sm">Register a body admission to the mortuary</p>
-    </div>
-    <Card>
-      <CardHeader><CardTitle>Admission Details</CardTitle></CardHeader>
-      <CardContent>
-        <form className="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={(e) => { e.preventDefault(); toast.success("Body admitted to mortuary"); }}>
-          <div className="space-y-2"><Label>Deceased Name</Label><Input placeholder="Full name (or Unidentified)" /></div>
-          <div className="space-y-2"><Label>ID / Passport Number</Label><Input placeholder="If available" /></div>
+const generateMortuaryCaseId = () => `MORT-${Date.now().toString().slice(-6)}`;
+
+const MortuaryAdmission = () => {
+  const [caseId] = useState(() => generateMortuaryCaseId());
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Mortuary Admission</h1>
+        <p className="text-muted-foreground text-sm">Register a body admission to the mortuary</p>
+      </div>
+      <Card>
+        <CardHeader><CardTitle>Admission Details</CardTitle></CardHeader>
+        <CardContent>
+          <form className="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={(e) => { e.preventDefault(); toast.success("Body admitted to mortuary"); }}>
+            <div className="space-y-2"><Label>Mortuary Case ID</Label><Input value={caseId} readOnly className="bg-slate-50 text-slate-700" /></div>
+            <div className="space-y-2"><Label>Deceased Name</Label><Input placeholder="Full name (or Unidentified)" /></div>
+            <div className="space-y-2"><Label>ID / Passport Number</Label><Input placeholder="If available" /></div>
           <div className="space-y-2"><Label>Age</Label><Input type="number" placeholder="Age at death" /></div>
           <div className="space-y-2"><Label>Gender</Label>
             <Select><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
@@ -37,18 +44,19 @@ const MortuaryAdmission = () => (
               <SelectContent>{Array.from({ length: 12 }, (_, i) => `C-${String(i + 1).padStart(2, "0")}`).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="space-y-2"><Label>Next of Kin Name</Label><Input placeholder="Name" /></div>
-          <div className="space-y-2"><Label>Next of Kin Phone</Label><Input placeholder="+254 7XX XXX XXX" /></div>
-          <div className="space-y-2"><Label>Relationship</Label><Input placeholder="e.g., Son, Wife" /></div>
-          <div className="md:col-span-2 space-y-2"><Label>Remarks</Label><Textarea placeholder="Any additional information, personal effects..." /></div>
-          <div className="md:col-span-2 flex gap-3">
-            <Button type="submit">Admit Body</Button>
-            <Button type="button" variant="outline">Print Tag</Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
-  </div>
-);
+            <div className="space-y-2"><Label>Next of Kin Name</Label><Input placeholder="Name" /></div>
+            <div className="space-y-2"><Label>Next of Kin Phone</Label><Input placeholder="+254 7XX XXX XXX" /></div>
+            <div className="space-y-2"><Label>Relationship</Label><Input placeholder="e.g., Son, Wife" /></div>
+            <div className="md:col-span-2 space-y-2"><Label>Remarks</Label><Textarea placeholder="Any additional information, personal effects..." /></div>
+            <div className="md:col-span-2 flex gap-3">
+              <Button type="submit">Admit Body</Button>
+              <Button type="button" variant="outline">Print Tag</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
 
 export default MortuaryAdmission;

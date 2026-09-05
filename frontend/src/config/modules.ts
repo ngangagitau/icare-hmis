@@ -26,7 +26,14 @@ import {
   Thermometer,
   Syringe,
   FileText,
+  FilePlus,
+  Paperclip,
+  Hospital,
+  DoorOpen,
+  Droplet,
+  Archive,
   Clipboard,
+  ListChecks,
   ListOrdered,
   History,
   TestTube,
@@ -48,6 +55,7 @@ import {
   ClipboardCheck,
   SendHorizonal,
   BadgeDollarSign,
+  Brain,
   Calculator,
   Landmark,
   ArrowLeftRight,
@@ -566,11 +574,68 @@ function addTicketingSubmodule(modules: Module[]): Module[] {
 
 export const modules = addTicketingSubmodule(baseModules);
 
+export const doctorIpdSubmodules: SubModule[] = [
+  { title: "Notes", url: "/doctor/inpatient/:id/notes", icon: FileText },
+  { title: "Note Create", url: "/doctor/inpatient/:id/create-note", icon: FilePlus },
+  { title: "Note Finder", url: "/doctor/inpatient/:id/find-note", icon: Search },
+  { title: "Consumable Requisition", url: "/doctor/inpatient/:id/consumables", icon: ShoppingBag },
+  { title: "Vital Sign Graph", url: "/doctor/inpatient/:id/vital-graph", icon: BarChart3 },
+  { title: "Prescribed Medicine", url: "/doctor/inpatient/:id/prescribed-medicine", icon: Pill },
+  { title: "MAR", url: "/doctor/inpatient/:id/mar", icon: Layers },
+  { title: "IPD Services", url: "/doctor/inpatient/:id/services", icon: Hospital },
+  { title: "Procedures", url: "/doctor/inpatient/:id/procedures", icon: HeartPulse },
+  { title: "Final Diagnosis", url: "/doctor/inpatient/:id/final-diagnosis", icon: CheckCircle },
+  { title: "Doctor Visit", url: "/doctor/inpatient/:id/doctor-visit", icon: Eye },
+  { title: "Vital Sign Chart", url: "/doctor/inpatient/:id/vital-chart", icon: HeartPulse },
+  { title: "Blood Transfusion", url: "/doctor/inpatient/:id/blood-transfusion", icon: Droplet },
+  { title: "Blood Transfusion Record", url: "/doctor/inpatient/:id/blood-transfusion-record", icon: Archive },
+  { title: "Billing", url: "/doctor/inpatient/:id/billing", icon: CreditCard },
+  { title: "Patient Allergy", url: "/doctor/inpatient/:id/allergy", icon: AlertCircle },
+  { title: "Med. Return Requisition", url: "/doctor/inpatient/:id/med-return", icon: DoorOpen },
+  { title: "View Requisition", url: "/doctor/inpatient/:id/view-requisition", icon: ListChecks },
+  { title: "Sample Collection", url: "/doctor/inpatient/:id/sample-collection", icon: TestTube },
+  { title: "Investigation View", url: "/doctor/inpatient/:id/investigation", icon: Search },
+  { title: "Blood Request", url: "/doctor/inpatient/:id/blood-request", icon: Droplets },
+  { title: "Pre-Op Checklist", url: "/doctor/inpatient/:id/pre-op-checklist", icon: CheckCircle },
+  { title: "Room Shift", url: "/doctor/inpatient/:id/room-shift", icon: ArrowRightLeft },
+  { title: "Discharge", url: "/doctor/inpatient/:id/discharge", icon: DoorOpen },
+  { title: "View/Uploaded Document", url: "/doctor/inpatient/:id/documents", icon: Paperclip },
+  { title: "Intake Output Chart", url: "/doctor/inpatient/:id/intake-output", icon: BarChart3 },
+  { title: "Transfer To Mortuary", url: "/doctor/inpatient/:id/transfer-mortuary", icon: Hospital },
+  { title: "OT Trainer", url: "/doctor/inpatient/:id/ot-trainer", icon: Brain },
+  { title: "Bill Print", url: "/doctor/inpatient/:id/bill-print", icon: Printer },
+  { title: "Neurological Exam", url: "/doctor/inpatient/:id/neurological-exam", icon: Brain },
+];
+
+function withPatientId(patientId: string, submodules: SubModule[]) {
+  return submodules.map((submodule) => ({
+    ...submodule,
+    url: submodule.url.replace(":id", patientId),
+  }));
+}
+
 export function getModuleByPath(pathname: string): Module | undefined {
   if (pathname === "/" || pathname.startsWith("/dashboard")) {
     return modules.find((m) => m.key === "dashboard");
   }
+  if (pathname.startsWith("/doctor")) {
+    return modules.find((m) => m.key === "doctor");
+  }
   return modules.find(
     (m) => m.basePath !== "/" && pathname.startsWith(m.basePath)
   );
+}
+
+export function getActiveModuleByPath(pathname: string): Module | undefined {
+  const activeModule = getModuleByPath(pathname);
+  if (activeModule?.key === "doctor") {
+    const match = pathname.match(/^\/doctor\/inpatient\/([^/]+)/);
+    if (match) {
+      return {
+        ...activeModule,
+        submodules: withPatientId(match[1], doctorIpdSubmodules),
+      };
+    }
+  }
+  return activeModule;
 }
