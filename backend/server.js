@@ -27,6 +27,7 @@ const reportsRoutes = require('./routes/reports');
 const ticketRoutes = require('./routes/tickets');
 const prescriptionRoutes = require('./routes/prescriptions');
 const pharmacyOpsRoutes = require('./routes/pharmacyOps');
+const inpatientRoutes = require('./routes/inpatient');
 const createModuleRouter = require('./routes/genericModuleRoutes');
 
 const app = express();
@@ -109,7 +110,7 @@ app.use('/api/doctor', createModuleRouter('doctor'));
 app.use('/api/laboratory', createModuleRouter('laboratory'));
 app.use('/api/radiology', createModuleRouter('radiology'));
 app.use('/api/pharmacy', createModuleRouter('pharmacy'));
-app.use('/api/inpatient', createModuleRouter('inpatient'));
+app.use('/api/inpatient', inpatientRoutes);
 app.use('/api/theatre', createModuleRouter('theatre'));
 app.use('/api/blood-bank', createModuleRouter('blood-bank'));
 app.use('/api/cssd', createModuleRouter('cssd'));
