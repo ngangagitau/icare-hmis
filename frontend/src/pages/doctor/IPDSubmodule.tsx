@@ -11,6 +11,32 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { admittedPatients } from "./ipd";
 import { AlertTriangle, ClipboardList, CalendarCheck, CheckCircle2, Plus, Save, Trash2, Edit, Search, FileText, Eye, Upload } from "lucide-react";
+import {
+  NotesViewComponent,
+  VitalSignGraphComponent,
+  PrescribedMedicineComponent,
+  MARComponent,
+  IPDServicesComponent,
+  ProceduresComponent,
+  DoctorVisitComponent,
+  VitalSignChartComponent,
+  BloodTransfusionComponent,
+  BloodTransfusionRecordComponent,
+  BillingComponent,
+  AllergyComponent,
+  ViewRequisitionComponent,
+  SampleCollectionComponent,
+  InvestigationComponent,
+  BloodRequestComponent,
+  PreOpChecklistComponent,
+  RoomShiftComponent,
+  DocumentsComponent,
+  IntakeOutputComponent,
+  TransferMortuaryComponent,
+  OTTrainerComponent,
+  BillPrintComponent,
+  NeurologicalExamComponent,
+} from "./ipdSubcomponents";
 
 const submoduleMeta: Record<string, { title: string; description: string }> = {
   notes: {
@@ -1636,41 +1662,8 @@ function DischargeSummaryComponent({ patient }: { patient: any }) {
 
 function renderSubmoduleBody(key: string, patient: any) {
   switch (key) {
-    case "notes": {
-      const notes = [
-        { author: "Dr. Ochieng", type: "Ward Round Note", note: "Patient remains stable with controlled blood pressure.", time: "2026-03-14 09:20" },
-        { author: "Nurse Akinyi", type: "Nursing Note", note: "IV site clean, legs elevated, pain managed with paracetamol.", time: "2026-03-13 17:35" },
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Clinical Notes</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Author</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Note</TableHead>
-                  <TableHead>Time</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {notes.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.author}</TableCell>
-                    <TableCell>{item.type}</TableCell>
-                    <TableCell>{item.note}</TableCell>
-                    <TableCell>{item.time}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      );
-    }
+    case "notes":
+      return <NotesViewComponent patient={patient} />;
     case "note-create":
       return <NoteCreateComponent />;
     case "note-finder":
@@ -1678,605 +1671,57 @@ function renderSubmoduleBody(key: string, patient: any) {
     case "consumable-requisition":
       return <ConsumableRequisitionForm patient={patient} />;
     case "vital-sign-graph":
-      return (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Vital Signs Trend</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-72 rounded-3xl bg-slate-950 p-6 text-slate-400">
-                <p className="text-sm">Graph preview placeholder showing temperature, pulse, blood pressure, and SPO2 trends over time.</p>
-              </div>
-            </CardContent>
-          </Card>
-          <div className="grid gap-4 md:grid-cols-2">
-            {[
-              { label: "Latest Temperature", value: "36.8°C" },
-              { label: "Latest Pulse", value: "78 bpm" },
-              { label: "Latest BP", value: "132/84 mmHg" },
-              { label: "Latest SPO2", value: "98%" },
-            ].map((card) => (
-              <Card key={card.label}>
-                <CardContent className="space-y-2">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{card.label}</p>
-                  <p className="text-2xl font-semibold text-foreground">{card.value}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      );
-    case "prescribed-medicine": {
-      const meds = [
-        { drug: "Captopril 25mg", dose: "1 tab BD", route: "PO", status: "Active" },
-        { drug: "Metformin 500mg", dose: "1 tab BD", route: "PO", status: "Active" },
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Prescribed Medicines</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Drug</TableHead>
-                  <TableHead>Dosage</TableHead>
-                  <TableHead>Route</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {meds.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.drug}</TableCell>
-                    <TableCell>{item.dose}</TableCell>
-                    <TableCell>{item.route}</TableCell>
-                    <TableCell>{item.status}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <Button>Update Prescription</Button>
-          </CardContent>
-        </Card>
-      );
-    }
-    case "mar": {
-      const administrations = [
-        { time: "08:00", medication: "Captopril", nurse: "Nurse Akinyi", status: "Given" },
-        { time: "14:00", medication: "Metformin", nurse: "Nurse Wanjiru", status: "Scheduled" },
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Medication Administration Record</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Medication</TableHead>
-                  <TableHead>Nurse</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {administrations.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.time}</TableCell>
-                    <TableCell>{item.medication}</TableCell>
-                    <TableCell>{item.nurse}</TableCell>
-                    <TableCell>{item.status}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      );
-    }
-    case "ipd-services": {
-      const services = [
-        { name: "Physiotherapy", status: "Pending" },
-        { name: "Dietitian Consultation", status: "Scheduled" },
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">IPD Services</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {services.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.name}</TableCell>
-                    <TableCell>{item.status}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <Button>Order New Service</Button>
-          </CardContent>
-        </Card>
-      );
-    }
-    case "procedures": {
-      const procedures = [
-        { procedure: "Chest X-ray", date: "2026-03-15", status: "Planned" },
-        { procedure: "IV Cannulation", date: "2026-03-13", status: "Completed" },
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Procedures</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Procedure</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {procedures.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.procedure}</TableCell>
-                    <TableCell>{item.date}</TableCell>
-                    <TableCell>{item.status}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      );
-    }
+      return <VitalSignGraphComponent patient={patient} />;
+    case "prescribed-medicine":
+      return <PrescribedMedicineComponent patient={patient} />;
+    case "mar":
+      return <MARComponent patient={patient} />;
+    case "ipd-services":
+      return <IPDServicesComponent patient={patient} />;
+    case "procedures":
+      return <ProceduresComponent patient={patient} />;
     case "final-diagnosis":
       return <FinalDiagnosisComponent patient={patient} />;
-    case "doctor-visit": {
-      const visits = [
-        { doctor: "Dr. Ochieng", time: "09:00", notes: "Continue antihypertensives, observe input/output." },
-        { doctor: "Dr. Njeri", time: "15:00", notes: "Review post-op wound, order repeat labs." },
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Doctor Visit Log</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Doctor</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Notes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visits.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.doctor}</TableCell>
-                    <TableCell>{item.time}</TableCell>
-                    <TableCell>{item.notes}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      );
-    }
-    case "vital-sign-chart": {
-      const values = [
-        { date: "2026-03-13", temp: "37.1°C", pulse: "80 bpm", bp: "120/78" },
-        { date: "2026-03-14", temp: "36.9°C", pulse: "78 bpm", bp: "118/76" },
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Vital Sign Chart</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Temperature</TableHead>
-                  <TableHead>Pulse</TableHead>
-                  <TableHead>BP</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {values.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.date}</TableCell>
-                    <TableCell>{item.temp}</TableCell>
-                    <TableCell>{item.pulse}</TableCell>
-                    <TableCell>{item.bp}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      );
-    }
-
-    case "blood-transfusion-record": {
-      const records = [
-        { date: "2026-03-12", component: "Packed Cells", units: 2, status: "Completed" },
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Transfusion Records</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Component</TableHead>
-                  <TableHead>Units</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.date}</TableCell>
-                    <TableCell>{item.component}</TableCell>
-                    <TableCell>{item.units}</TableCell>
-                    <TableCell>{item.status}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      );
-    }
-    case "billing": {
-      const charges = [
-        { item: "Bed charges", amount: 4200 },
-        { item: "Medication", amount: 1800 },
-        { item: "Lab tests", amount: 2100 },
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Billing Summary</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Amount (KES)</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {charges.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.item}</TableCell>
-                    <TableCell>{item.amount.toLocaleString()}</TableCell>
-                  </TableRow>
-                ))}
-                <TableRow className="font-semibold">
-                  <TableCell>Total</TableCell>
-                  <TableCell>{charges.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-            <Button>Review Invoice</Button>
-          </CardContent>
-        </Card>
-      );
-    }
-    case "allergy": {
-      const allergies = [
-        { agent: "Penicillin", reaction: "Rash", severity: "Moderate" },
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Allergy Profile</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Allergen</TableHead>
-                  <TableHead>Reaction</TableHead>
-                  <TableHead>Severity</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {allergies.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.agent}</TableCell>
-                    <TableCell>{item.reaction}</TableCell>
-                    <TableCell>{item.severity}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <Button>Add Allergy</Button>
-          </CardContent>
-        </Card>
-      );
-    }
+    case "doctor-visit":
+      return <DoctorVisitComponent patient={patient} />;
+    case "vital-sign-chart":
+      return <VitalSignChartComponent patient={patient} />;
+    case "blood-transfusion":
+      return <BloodTransfusionComponent patient={patient} />;
+    case "blood-transfusion-record":
+      return <BloodTransfusionRecordComponent patient={patient} />;
+    case "billing":
+      return <BillingComponent patient={patient} />;
+    case "allergy":
+      return <AllergyComponent patient={patient} />;
     case "med-return":
       return <MedicationReturnComponent patient={patient} />;
-    case "view-requisition": {
-      const requisitions = [
-        { id: "REQ-1001", type: "Medication", status: "Approved" },
-        { id: "REQ-1002", type: "Consumable", status: "Pending" },
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Requisition Overview</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Request ID</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {requisitions.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.id}</TableCell>
-                    <TableCell>{item.type}</TableCell>
-                    <TableCell>{item.status}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      );
-    }
-    case "sample-collection": {
-      const samples = [
-        { sample: "CBC", status: "Collected" },
-        { sample: "Culture", status: "Pending" },
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Sample Collection</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Sample</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {samples.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.sample}</TableCell>
-                    <TableCell>{item.status}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <Button>Request Collection</Button>
-          </CardContent>
-        </Card>
-      );
-    }
-    case "investigation": {
-      const investigations = [
-        { name: "Chest X-ray", status: "Approved" },
-        { name: "Blood culture", status: "Pending" },
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Investigations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Investigation</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {investigations.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.name}</TableCell>
-                    <TableCell>{item.status}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      );
-    }
+    case "view-requisition":
+      return <ViewRequisitionComponent patient={patient} />;
+    case "sample-collection":
+      return <SampleCollectionComponent patient={patient} />;
+    case "investigation":
+      return <InvestigationComponent patient={patient} />;
     case "blood-request":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Blood Request</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input placeholder="Component required" defaultValue="Packed Cells" />
-            <Input placeholder="Units" defaultValue="2" type="number" />
-            <Textarea rows={4} placeholder="Clinical justification" defaultValue="Post-operative anemia with Hb 7.8 g/dL." />
-            <Button>Submit Blood Request</Button>
-          </CardContent>
-        </Card>
-      );
-    case "pre-op-checklist": {
-      const checklist = [
-        "Consent form signed",
-        "Fasting confirmed",
-        "Blood group checked",
-        "Allergies verified",
-        "IV access secured",
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Pre-Op Checklist</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {checklist.map((item, index) => (
-              <div key={index} className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3">
-                <CheckCircle2 className="h-4 w-4 text-success" />
-                <span>{item}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      );
-    }
+      return <BloodRequestComponent patient={patient} />;
+    case "pre-op-checklist":
+      return <PreOpChecklistComponent patient={patient} />;
     case "room-shift":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Room Shift</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2"><Label>Current Ward</Label><Input defaultValue={patient.ward} readOnly /></div>
-              <div className="space-y-2"><Label>New Ward / Bed</Label><Input placeholder="Enter new ward / bed" /></div>
-            </div>
-            <Button>Submit Transfer</Button>
-          </CardContent>
-        </Card>
-      );
+      return <RoomShiftComponent patient={patient} />;
     case "discharge":
       return <DischargeSummaryComponent patient={patient} />;
-    case "documents": {
-      const docs = [
-        { name: "Admission Form.pdf", uploaded: "2026-03-10" },
-        { name: "Lab Result.pdf", uploaded: "2026-03-13" },
-      ];
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Uploaded Documents</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Document</TableHead>
-                  <TableHead>Uploaded</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {docs.map((doc, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{doc.name}</TableCell>
-                    <TableCell>{doc.uploaded}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <Button>Upload Document</Button>
-          </CardContent>
-        </Card>
-      );
-    }
+    case "documents":
+      return <DocumentsComponent patient={patient} />;
     case "intake-output":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Intake / Output Chart</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-3xl bg-slate-950 p-4">
-                <p className="text-xs uppercase text-slate-500">Total Intake</p>
-                <p className="mt-2 text-2xl font-semibold">2300 ml</p>
-              </div>
-              <div className="rounded-3xl bg-slate-950 p-4">
-                <p className="text-xs uppercase text-slate-500">Total Output</p>
-                <p className="mt-2 text-2xl font-semibold">1900 ml</p>
-              </div>
-            </div>
-            <div className="h-48 rounded-3xl bg-slate-900 p-4 text-slate-400">Chart preview placeholder for fluid balance.</div>
-          </CardContent>
-        </Card>
-      );
+      return <IntakeOutputComponent patient={patient} />;
     case "transfer-mortuary":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Transfer to Mortuary</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <AlertTriangle className="h-6 w-6 text-destructive" />
-            <Textarea rows={4} defaultValue="Confirm deceased patient transfer to mortuary with transfer notes." />
-            <Button variant="destructive">Submit Transfer</Button>
-          </CardContent>
-        </Card>
-      );
+      return <TransferMortuaryComponent patient={patient} />;
     case "ot-trainer":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">OT Trainer</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-slate-400">Plan and track occupational therapy exercises and training sessions.</p>
-            <Textarea rows={5} defaultValue="Document rehabilitation goals and daily therapy progress." />
-            <Button>Save OT Plan</Button>
-          </CardContent>
-        </Card>
-      );
+      return <OTTrainerComponent patient={patient} />;
     case "bill-print":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Bill Print</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-slate-400">Preview the current patient bill and print it for the ward cashier.</p>
-            <Button>Print Bill</Button>
-          </CardContent>
-        </Card>
-      );
+      return <BillPrintComponent patient={patient} />;
     case "neurological-exam":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Neurological Exam</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2"><Label>Level of consciousness</Label><Input defaultValue="Alert" readOnly /></div>
-              <div className="space-y-2"><Label>Pupils</Label><Input defaultValue="Equal reactive" readOnly /></div>
-            </div>
-            <Textarea rows={5} defaultValue="Motor exam, reflexes, coordination and sensory findings." />
-          </CardContent>
-        </Card>
-      );
+      return <NeurologicalExamComponent patient={patient} />;
     default:
       return (
         <Card>
