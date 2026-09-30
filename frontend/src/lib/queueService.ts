@@ -33,6 +33,8 @@ export interface QueueEntry {
   complaint?: string;
   serviceName?: string;
   queuedAt: string;
+  startedAt?: string;
+  servedAt?: string;
   waitMinutes: number;
   waitTime: string;
 }

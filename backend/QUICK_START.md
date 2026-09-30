@@ -69,7 +69,7 @@ curl -X POST http://localhost:5000/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Admin User",
-    "email": "admin@hospital.com",
+    "email": "admin@icare.com",
     "password": "admin123",
     "role": "Super Admin",
     "permissions": [
@@ -89,7 +89,7 @@ curl -X POST http://localhost:5000/api/auth/register \
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@hospital.com",
+    "email": "admin@icare.com",
     "password": "admin123"
   }'
 ```

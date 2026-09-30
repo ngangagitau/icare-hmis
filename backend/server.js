@@ -28,7 +28,12 @@ const ticketRoutes = require('./routes/tickets');
 const prescriptionRoutes = require('./routes/prescriptions');
 const pharmacyOpsRoutes = require('./routes/pharmacyOps');
 const inpatientRoutes = require('./routes/inpatient');
+const emergencyDashboardRoutes = require('./routes/emergencyDashboard');
 const createModuleRouter = require('./routes/genericModuleRoutes');
+const laboratoryRoutes = require('./routes/laboratory');
+const radiologyRoutes = require('./routes/radiology');
+const clinicalIntelligenceRoutes = require('./routes/clinicalIntelligence');
+const patientFlowRoutes = require('./routes/patientFlow');
 
 const app = express();
 
@@ -36,13 +41,6 @@ const app = express();
 app.use(helmet());
 app.use(compression());
 app.use(morgan('combined'));
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW) * 60 * 1000 || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX) || 100,
-});
-app.use('/api/', limiter);
 
 // CORS middleware
 app.use(cors({
@@ -63,6 +61,14 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+// Rate limiting applies to API requests, but never blocks browser preflight.
+const limiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW) * 60 * 1000 || 15 * 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_MAX) || (process.env.NODE_ENV === 'production' ? 100 : 1000),
+  skip: (req) => req.method === 'OPTIONS' || (process.env.NODE_ENV !== 'production' && req.method === 'GET'),
+});
+app.use('/api/', limiter);
 
 // Body parser middleware
 app.use(express.json({ limit: '10mb' }));
@@ -104,11 +110,13 @@ app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/pharmacy-ops', pharmacyOpsRoutes);
 
 // Postgres-backed generic module routes
+app.use('/api/emergency', emergencyDashboardRoutes);
 app.use('/api/emergency', createModuleRouter('emergency'));
 app.use('/api/triage', createModuleRouter('triage'));
 app.use('/api/doctor', createModuleRouter('doctor'));
-app.use('/api/laboratory', createModuleRouter('laboratory'));
-app.use('/api/radiology', createModuleRouter('radiology'));
+app.use('/api/laboratory', laboratoryRoutes);
+app.use('/api/radiology', radiologyRoutes);
+app.use('/api/pharmacy', pharmacyOpsRoutes);
 app.use('/api/pharmacy', createModuleRouter('pharmacy'));
 app.use('/api/inpatient', inpatientRoutes);
 app.use('/api/theatre', createModuleRouter('theatre'));
@@ -124,6 +132,10 @@ app.use('/api/it', createModuleRouter('it'));
 app.use('/api/admin', createModuleRouter('admin'));
 app.use('/api/super-admin', createModuleRouter('super-admin'));
 app.use('/api/dashboard', createModuleRouter('dashboard'));
+
+// Intelligence Routes
+app.use('/api/clinical-intelligence', clinicalIntelligenceRoutes);
+app.use('/api/patient-flow', patientFlowRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

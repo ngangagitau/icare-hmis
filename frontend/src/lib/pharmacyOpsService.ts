@@ -101,3 +101,52 @@ export async function fetchStockSummary(): Promise<{ totalItems: number; lowStoc
   const resp = await apiClient.get<ApiResponse<{ totalItems: number; lowStockItems: number; outOfStockItems: number }>>("/pharmacy-ops/stock/summary");
   return unwrap(resp);
 }
+
+export interface PharmacyStats {
+  totalInventoryItems: number;
+  totalValuation: number;
+  lowStockItems: number;
+  expiredItems: number;
+  nearExpiryItems: number;
+  pendingPrescriptions: number;
+  dispensedPrescriptions: number;
+  todayOtcSalesCount: number;
+  todayOtcRevenue: number;
+}
+
+export interface PharmacyExpiryItem {
+  _id: string;
+  code: string;
+  drug: string;
+  category: string;
+  batch: string;
+  expiry: string;
+  qty: number;
+  unitCost: number;
+  valuationAtRisk: number;
+  daysLeft: number;
+  status: "Expired" | "Critical" | "Warning" | "Good";
+}
+
+export interface MonthlyPharmacyReport {
+  month: string;
+  dispensed: number;
+  otc: number;
+  revenue: number;
+  returned: number;
+}
+
+export async function fetchPharmacyStats(): Promise<PharmacyStats> {
+  const resp = await apiClient.get<ApiResponse<PharmacyStats>>("/pharmacy/stats");
+  return unwrap(resp);
+}
+
+export async function fetchPharmacyExpiries(): Promise<PharmacyExpiryItem[]> {
+  const resp = await apiClient.get<ApiResponse<PharmacyExpiryItem[]>>("/pharmacy/expiries");
+  return unwrap(resp);
+}
+
+export async function fetchPharmacyMonthlyReports(): Promise<MonthlyPharmacyReport[]> {
+  const resp = await apiClient.get<ApiResponse<MonthlyPharmacyReport[]>>("/pharmacy/reports/monthly");
+  return unwrap(resp);
+}

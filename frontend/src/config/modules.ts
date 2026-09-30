@@ -550,6 +550,38 @@ const baseModules: Module[] = [
       { title: "System Override", url: "/super-admin/override", icon: Power },
     ],
   },
+  {
+    key: "clinical-intelligence",
+    label: "Clinical Intelligence",
+    icon: Brain,
+    color: "250 70% 50%",
+    basePath: "/clinical-intelligence",
+    submodules: [
+      { title: "Risk Dashboard", url: "/clinical-intelligence", icon: Activity },
+      { title: "Clinical Alerts", url: "/clinical-intelligence/alerts", icon: AlertTriangle },
+    ],
+  },
+  {
+    key: "patient-flow",
+    label: "Patient Flow",
+    icon: Workflow,
+    color: "170 60% 40%",
+    basePath: "/patient-flow",
+    submodules: [
+      { title: "Live Queue", url: "/patient-flow/live", icon: Activity },
+      { title: "Flow Analytics", url: "/patient-flow/analytics", icon: BarChart3 },
+    ],
+  },
+  {
+    key: "hospital-intelligence",
+    label: "Hospital Intelligence",
+    icon: Activity,
+    color: "210 70% 45%",
+    basePath: "/hospital-intelligence",
+    submodules: [
+      { title: "Operations Dashboard", url: "/hospital-intelligence", icon: Activity },
+    ],
+  },
 ];
 
 function addTicketingSubmodule(modules: Module[]): Module[] {

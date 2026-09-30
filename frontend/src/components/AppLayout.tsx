@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Bell, Search, LayoutGrid, Mail, Phone, Briefcase, LogOut, Key } from "lucide-react";
+import { Bell, Search, LayoutGrid, Mail, Phone, Briefcase, LogOut, Key, AlertTriangle, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ModuleGrid } from "@/components/ModuleGrid";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,6 +22,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { getHospitalAlerts } from "@/lib/clinicalIntelligenceService";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -109,7 +112,39 @@ function ChangePasswordDialog({ children }: { children: React.ReactNode }) {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isGridOpen, setIsGridOpen] = useState(false);
+  const { data: clinicalAlerts = [], isSuccess: alertsLoaded } = useQuery({
+    queryKey: ["hospital-alerts", "notifications"],
+    queryFn: () => getHospitalAlerts(),
+    refetchInterval: 30_000,
+  });
+  const knownAlertIds = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    if (!alertsLoaded) return;
+
+    const currentAlertIds = new Set(clinicalAlerts.map((alert) => alert.id));
+    if (knownAlertIds.current === null) {
+      knownAlertIds.current = currentAlertIds;
+      return;
+    }
+
+    const newAlerts = clinicalAlerts.filter((alert) => !knownAlertIds.current?.has(alert.id));
+    knownAlertIds.current = currentAlertIds;
+
+    newAlerts.forEach((alert) => {
+      const notify = alert.severity === "CRITICAL" || alert.severity === "HIGH" ? toast.error : toast.warning;
+      notify(`Clinical alert: ${alert.title}`, {
+        description: alert.message,
+        duration: 10000,
+        action: {
+          label: "View",
+          onClick: () => navigate("/clinical-intelligence/alerts"),
+        },
+      });
+    });
+  }, [alertsLoaded, clinicalAlerts, navigate]);
 
   const initials = getInitials(user ?? {});
 
@@ -117,15 +152,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     <SidebarProvider defaultOpen={true}>
       <div className="min-h-screen flex w-full">
         <AppSidebar />
-        <SidebarInset className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 flex items-center justify-between border-b border-border bg-card px-4 shrink-0 sticky top-0 z-30">
+        <SidebarInset className="flex-1 flex flex-col min-w-0 app-shell-glow">
+          <header className="h-14 flex items-center justify-between border-b border-border/80 bg-card/85 backdrop-blur-md px-4 shrink-0 sticky top-0 z-30 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="relative hidden sm:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search patients, records..."
-                  className="pl-9 w-64 h-9 bg-muted/50 border-0 text-sm"
+                  className="pl-9 w-64 h-9 bg-muted/50 border-0 text-sm focus-visible:ring-primary/30"
                 />
+              </div>
+              <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground border-l border-border/70 pl-3 ml-1">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-medium text-foreground/80">Hospital Telemetry Active</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -136,10 +175,54 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               >
                 <LayoutGrid className="h-[18px] w-[18px] text-muted-foreground group-hover:text-foreground transition-colors" />
               </button>
-              <button className="relative h-9 w-9 rounded-lg flex items-center justify-center hover:bg-muted transition-colors">
-                <Bell className="h-[18px] w-[18px] text-muted-foreground" />
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="relative h-9 w-9 rounded-lg flex items-center justify-center hover:bg-muted transition-colors"
+                    title="Clinical notifications"
+                  >
+                    <Bell className="h-[18px] w-[18px] text-muted-foreground" />
+                    {clinicalAlerts.length > 0 && (
+                      <span className="absolute -right-1 -top-1 min-w-4 h-4 rounded-full bg-destructive px-1 text-[10px] leading-4 text-destructive-foreground">
+                        {clinicalAlerts.length > 99 ? "99+" : clinicalAlerts.length}
+                      </span>
+                    )}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-96">
+                  <DropdownMenuLabel className="flex items-center justify-between">
+                    <span>Clinical Alerts</span>
+                    {clinicalAlerts.length > 0 && (
+                      <span className="text-xs font-normal text-muted-foreground">{clinicalAlerts.length} active</span>
+                    )}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {clinicalAlerts.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-sm text-muted-foreground">No active clinical alerts</div>
+                  ) : (
+                    <>
+                      {clinicalAlerts.slice(0, 5).map((alert) => (
+                        <DropdownMenuItem
+                          key={alert.id}
+                          className="items-start gap-2 py-2.5 cursor-pointer"
+                          onClick={() => navigate(`/clinical-intelligence/alerts`)}
+                        >
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-xs font-semibold">{alert.title}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{alert.message}</span>
+                          </span>
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="justify-center gap-1 text-xs font-medium text-primary cursor-pointer" onClick={() => navigate("/clinical-intelligence/alerts")}>
+                        View all clinical alerts
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* ── user avatar + profile dropdown ─────────────────────────────── */}
               <DropdownMenu>

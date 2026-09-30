@@ -33,6 +33,7 @@ const createTables = async () => {
         last_name VARCHAR(255) NOT NULL,
         date_of_birth DATE NOT NULL,
         gender VARCHAR(50),
+        id_number VARCHAR(100),
         phone VARCHAR(20),
         email VARCHAR(255),
         blood_type VARCHAR(10),
@@ -48,6 +49,23 @@ const createTables = async () => {
         created_by UUID REFERENCES users(id),
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await query(`ALTER TABLE patients ADD COLUMN IF NOT EXISTS id_number VARCHAR(100);`);
+    await query(`CREATE SEQUENCE IF NOT EXISTS patient_number_seq;`);
+    await query(`
+      SELECT setval(
+        'patient_number_seq',
+        GREATEST(
+          COALESCE(
+            (SELECT MAX((substring(patient_id FROM '^PT-([0-9]+)$'))::bigint)
+             FROM patients
+             WHERE patient_id ~ '^PT-[0-9]+$'),
+            0
+          ) + 1,
+          (SELECT last_value + CASE WHEN is_called THEN 1 ELSE 0 END FROM patient_number_seq)
+        ),
+        false
       );
     `);
     console.log('✓ patients table created');
@@ -95,6 +113,7 @@ const createTables = async () => {
     `);
     await query(`CREATE INDEX IF NOT EXISTS idx_queue_entries_department_status_queued_at ON queue_entries (department, status, queued_at);`);
     await query(`CREATE INDEX IF NOT EXISTS idx_queue_entries_patient_department_active ON queue_entries (patient_id, department, status);`);
+    await query(`ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();`);
     console.log('✓ queue_entries table created');
 
     // 3d. Prescriptions table
@@ -116,6 +135,7 @@ const createTables = async () => {
     `);
     await query(`CREATE INDEX IF NOT EXISTS idx_prescriptions_status_created_at ON prescriptions (status, created_at);`);
     await query(`CREATE INDEX IF NOT EXISTS idx_prescriptions_patient_created_at ON prescriptions (patient_id, created_at);`);
+    await query(`ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'Pending';`);
     console.log('✓ prescriptions table created');
 
     // 3e. OTC sales and stock control tables
@@ -229,6 +249,8 @@ const createTables = async () => {
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
+    await query(`ALTER TABLE billing ADD COLUMN IF NOT EXISTS linked_orders JSONB DEFAULT '[]'::jsonb;`);
+    await query(`ALTER TABLE billing ADD COLUMN IF NOT EXISTS insurance_approval JSONB;`);
     console.log('✓ billing table created');
 
     // 5b. Finance table
@@ -321,18 +343,36 @@ const createTables = async () => {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         order_number VARCHAR(50) UNIQUE NOT NULL,
         patient_id UUID REFERENCES patients(id),
+        queue_entry_id UUID,
         test_name VARCHAR(255) NOT NULL,
         test_code VARCHAR(50),
+        specimen_type VARCHAR(100),
         order_date DATE,
         requested_by UUID REFERENCES users(id),
         status VARCHAR(50) DEFAULT 'Pending',
         results JSONB,
         notes TEXT,
+        payment_status VARCHAR(50) DEFAULT 'Cleared',
+        result_status VARCHAR(50),
+        collected_at TIMESTAMPTZ,
+        collected_by UUID REFERENCES users(id),
+        resulted_at TIMESTAMPTZ,
+        analyzed_by UUID REFERENCES users(id),
         created_by UUID REFERENCES users(id),
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
+    await query(`ALTER TABLE laboratory_orders ADD COLUMN IF NOT EXISTS queue_entry_id UUID;`);
+    await query(`ALTER TABLE laboratory_orders ADD COLUMN IF NOT EXISTS specimen_type VARCHAR(100);`);
+    await query(`ALTER TABLE laboratory_orders ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'Cleared';`);
+    await query(`ALTER TABLE laboratory_orders ADD COLUMN IF NOT EXISTS result_status VARCHAR(50);`);
+    await query(`ALTER TABLE laboratory_orders ADD COLUMN IF NOT EXISTS collected_at TIMESTAMPTZ;`);
+    await query(`ALTER TABLE laboratory_orders ADD COLUMN IF NOT EXISTS collected_by UUID REFERENCES users(id);`);
+    await query(`ALTER TABLE laboratory_orders ADD COLUMN IF NOT EXISTS resulted_at TIMESTAMPTZ;`);
+    await query(`ALTER TABLE laboratory_orders ADD COLUMN IF NOT EXISTS analyzed_by UUID REFERENCES users(id);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_laboratory_orders_patient ON laboratory_orders(patient_id, created_at DESC);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_laboratory_orders_status ON laboratory_orders(status);`);
     console.log('✓ laboratory_orders table created');
 
     // 10. Radiology Orders table
@@ -353,6 +393,7 @@ const createTables = async () => {
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
+    await query(`ALTER TABLE radiology_orders ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'Pending';`);
     console.log('✓ radiology_orders table created');
 
     // 11. Theatre/Surgery Bookings table
@@ -665,6 +706,117 @@ const createTables = async () => {
     `);
     console.log('✓ telemedicine_sessions table created');
 
+    // 27. Patient Risk Assessments table (Clinical Intelligence)
+    await query(`
+      CREATE TABLE IF NOT EXISTS patient_risk_assessments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+        score INTEGER NOT NULL CHECK (score >= 0 AND score <= 100),
+        risk_level VARCHAR(20) NOT NULL CHECK (risk_level IN ('LOW', 'MODERATE', 'HIGH', 'CRITICAL')),
+        factors JSONB NOT NULL DEFAULT '[]'::jsonb,
+        clinical_summary TEXT,
+        assessed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        calculation_source VARCHAR(50) DEFAULT 'deterministic_engine',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS idx_risk_assessments_patient_date ON patient_risk_assessments(patient_id, created_at DESC);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_risk_assessments_level ON patient_risk_assessments(risk_level, created_at DESC);`);
+    console.log('✓ patient_risk_assessments table created');
+
+    // 28. Clinical Alerts table (Clinical Intelligence)
+    await query(`
+      CREATE TABLE IF NOT EXISTS clinical_alerts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+        alert_type VARCHAR(50) NOT NULL,
+        severity VARCHAR(20) NOT NULL CHECK (severity IN ('LOW', 'MODERATE', 'HIGH', 'CRITICAL')),
+        title VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        status VARCHAR(20) DEFAULT 'Active' CHECK (status IN ('Active', 'Acknowledged', 'Resolved', 'Dismissed')),
+        acknowledged_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        acknowledged_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS idx_clinical_alerts_patient ON clinical_alerts(patient_id, status, created_at DESC);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_clinical_alerts_status_sev ON clinical_alerts(status, severity, created_at DESC);`);
+    console.log('✓ clinical_alerts table created');
+
+    // 29. Queue Events table (Patient Flow Intelligence)
+    await query(`
+      CREATE TABLE IF NOT EXISTS queue_events (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        queue_entry_id UUID REFERENCES queue_entries(id) ON DELETE CASCADE,
+        patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+        department VARCHAR(50) NOT NULL,
+        event_type VARCHAR(50) NOT NULL,
+        from_status VARCHAR(30),
+        to_status VARCHAR(30),
+        priority VARCHAR(20),
+        wait_duration_seconds INTEGER,
+        service_duration_seconds INTEGER,
+        performed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        notes TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS idx_queue_events_patient ON queue_events(patient_id, created_at DESC);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_queue_events_dept_time ON queue_events(department, created_at DESC);`);
+    console.log('✓ queue_events table created');
+
+    // 30. Department Flow Configurations table (Patient Flow Intelligence)
+    await query(`
+      CREATE TABLE IF NOT EXISTS department_flow_configs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        department VARCHAR(50) UNIQUE NOT NULL,
+        target_wait_minutes INTEGER DEFAULT 30,
+        warning_wait_minutes INTEGER DEFAULT 45,
+        critical_wait_minutes INTEGER DEFAULT 60,
+        congestion_patient_threshold INTEGER DEFAULT 10,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    console.log('✓ department_flow_configs table created');
+
+    // 31. AI Interactions table (Clinical Assistant Decision Support Audit)
+    await query(`
+      CREATE TABLE IF NOT EXISTS ai_interactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        interaction_type VARCHAR(50) NOT NULL,
+        prompt_summary TEXT NOT NULL,
+        response_text TEXT NOT NULL,
+        model_used VARCHAR(100) NOT NULL,
+        disclaimer_acknowledged BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS idx_ai_interactions_patient ON ai_interactions(patient_id, created_at DESC);`);
+    console.log('✓ ai_interactions table created');
+
+    await query(`
+      INSERT INTO department_flow_configs (department, target_wait_minutes, warning_wait_minutes, critical_wait_minutes, congestion_patient_threshold)
+      VALUES
+        ('opd', 30, 45, 60, 15),
+        ('triage', 15, 25, 35, 10),
+        ('doctor', 25, 40, 55, 12),
+        ('lab', 20, 35, 50, 10),
+        ('pharmacy', 15, 25, 40, 15),
+        ('radiology', 30, 45, 60, 8)
+      ON CONFLICT (department) DO NOTHING;
+    `);
+
+    // Optional column enrichments on queue_entries
+    await query(`ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS assigned_to UUID REFERENCES users(id) ON DELETE SET NULL;`);
+    await query(`ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS recommended_priority VARCHAR(20);`);
+    await query(`ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS risk_score INTEGER;`);
+    await query(`ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS risk_level VARCHAR(20);`);
+
     // Create indexes for better query performance
     await query(`CREATE INDEX IF NOT EXISTS idx_patients_patient_id ON patients(patient_id);`);
     await query(`CREATE INDEX IF NOT EXISTS idx_patients_created_by ON patients(created_by);`);
@@ -679,7 +831,7 @@ const createTables = async () => {
     await query(`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);`);
 
     console.log('\n✅ All tables created successfully!');
-    console.log('📊 Total tables created: 27 core tables + system tables\n');
+    console.log('📊 Total tables created: 32 core & intelligence tables + system tables\n');
 
   } catch (error) {
     console.error('❌ Error creating tables:', error.message);

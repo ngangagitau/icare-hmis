@@ -4,6 +4,9 @@ import {
   createStockMovement,
   fetchInventoryLite,
   fetchOtcSales,
+  fetchPharmacyExpiries,
+  fetchPharmacyMonthlyReports,
+  fetchPharmacyStats,
   fetchStockMovements,
   fetchStockSummary,
 } from "@/lib/pharmacyOpsService";
@@ -13,6 +16,9 @@ const keys = {
   otcSales: ["otc-sales"] as const,
   stockMoves: ["stock-movements"] as const,
   stockSummary: ["stock-summary"] as const,
+  stats: ["pharmacy-stats"] as const,
+  expiries: ["pharmacy-expiries"] as const,
+  reports: ["pharmacy-monthly-reports"] as const,
 };
 
 export function useInventoryLite() {
@@ -33,6 +39,18 @@ export function useStockMovements(inventoryId?: string) {
 
 export function useStockSummary() {
   return useQuery({ queryKey: keys.stockSummary, queryFn: fetchStockSummary, refetchInterval: 10000 });
+}
+
+export function usePharmacyStats() {
+  return useQuery({ queryKey: keys.stats, queryFn: fetchPharmacyStats, refetchInterval: 10000 });
+}
+
+export function usePharmacyExpiries() {
+  return useQuery({ queryKey: keys.expiries, queryFn: fetchPharmacyExpiries, refetchInterval: 10000 });
+}
+
+export function usePharmacyMonthlyReports() {
+  return useQuery({ queryKey: keys.reports, queryFn: fetchPharmacyMonthlyReports, refetchInterval: 10000 });
 }
 
 export function useCreateOtcSale() {

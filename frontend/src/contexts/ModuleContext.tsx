@@ -19,10 +19,7 @@ export function ModuleProvider({ children }: { children: ReactNode }) {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        const storedSet = new Set(JSON.parse(stored));
-        // Ensure any new modules in config are also enabled
-        const allModuleKeys = new Set(modules.map(mod => mod.key));
-        return new Set([...storedSet, ...allModuleKeys]);
+        return new Set(JSON.parse(stored));
       }
     } catch (error) {
       console.error('Failed to load enabled modules from storage:', error);

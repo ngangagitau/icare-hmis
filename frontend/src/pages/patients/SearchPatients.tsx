@@ -1,17 +1,32 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useSearchParams } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { Search, CheckCircle2, Clock, Loader2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQuery } from "@tanstack/react-query";
+import { CheckCircle2, Clock3, Loader2, Search, Stethoscope, Users } from "lucide-react";
 import apiClient, { ApiResponse } from "@/lib/api";
 import { SERVICE_TO_DEPARTMENT, getDepartmentLabel } from "@/lib/queueService";
 import { useAddToQueue, useQueueList } from "@/hooks/useQueue";
 import { useToast } from "@/components/ui/use-toast";
+import { PatientMetricCard, PatientPageHeader } from "@/components/patients/PatientPageChrome";
 
 interface PatientRow {
   _id: string;
@@ -34,7 +49,8 @@ const services = [
 
 export default function SearchPatients() {
   const { toast } = useToast();
-  const [query, setQuery] = useState("");
+  const [searchParams] = useSearchParams();
+  const [query, setQuery] = useState(searchParams.get("query") || "");
   const [selectedPatient, setSelectedPatient] = useState<PatientRow | null>(null);
   const [showBookingDialog, setShowBookingDialog] = useState(false);
   const [selectedService, setSelectedService] = useState("");
@@ -49,9 +65,7 @@ export default function SearchPatients() {
         const res = await apiClient.get<ApiResponse<PatientRow[]>>("/patients?limit=50");
         return res.data ?? [];
       }
-      const res = await apiClient.get<ApiResponse<PatientRow[]>>(
-        `/patients/search/${encodeURIComponent(query.trim())}`
-      );
+      const res = await apiClient.get<ApiResponse<PatientRow[]>>(`/patients/search/${encodeURIComponent(query.trim())}`);
       return res.data ?? [];
     },
   });
@@ -79,65 +93,126 @@ export default function SearchPatients() {
     }
   };
 
+  const summaryCards = [
+    { label: "Patients found", value: String(patients.length), note: "Current search result", icon: Users, tone: "cyan" as const },
+    { label: "Queue active", value: String(queue.length), note: "Patients waiting now", icon: Clock3, tone: "amber" as const },
+    { label: "Service ready", value: "Live", note: "Book to any department", icon: Stethoscope, tone: "emerald" as const },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-heading font-bold">Patient Search & Queue Management</h1>
-        <p className="text-muted-foreground text-sm">Search patients and push them to department queues</p>
+    <div className="space-y-6 animate-fade-in">
+      <PatientPageHeader
+        title="Patient Search"
+        icon={Search}
+      >
+        <Badge variant="outline" className="w-fit border-primary/20 bg-primary/5 text-primary">
+          Live routing
+        </Badge>
+      </PatientPageHeader>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {summaryCards.map((metric) => (
+          <PatientMetricCard key={metric.label} {...metric} />
+        ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
+      <Card className="border-border shadow-card">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search name, ID, phone..." value={query} onChange={(e) => setQuery(e.target.value)} className="pl-9" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search name, ID, phone..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="pl-9"
+              />
             </div>
-            <Button variant="secondary" disabled={loadingPatients}>
+
+            <Button variant="secondary" disabled={loadingPatients} className="min-w-[120px]">
               {loadingPatients ? <Loader2 className="h-4 w-4 animate-spin" /> : `${patients.length} results`}
             </Button>
           </div>
         </CardHeader>
+
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead><TableHead>Name</TableHead><TableHead>Phone</TableHead><TableHead>Gender</TableHead><TableHead>Scheme</TableHead><TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {patients.map((p) => (
-                <TableRow key={p._id}>
-                  <TableCell className="font-mono text-sm">{p.patientId}</TableCell>
-                  <TableCell>{p.firstName} {p.lastName}</TableCell>
-                  <TableCell>{p.phone}</TableCell>
-                  <TableCell>{p.gender}</TableCell>
-                  <TableCell><Badge variant="secondary">{p.insurance?.provider || "Cash"}</Badge></TableCell>
-                  <TableCell className="text-right">
-                    <Button size="sm" onClick={() => { setSelectedPatient(p); setShowBookingDialog(true); }}>Book Service</Button>
-                  </TableCell>
+          <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+            <Table className="min-w-[680px]">
+              <TableHeader className="bg-muted/50 [&_tr]:border-border/70">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-10 text-[11px] font-semibold uppercase text-muted-foreground">ID</TableHead>
+                  <TableHead className="h-10 text-[11px] font-semibold uppercase text-muted-foreground">Name</TableHead>
+                  <TableHead className="h-10 text-[11px] font-semibold uppercase text-muted-foreground">Phone</TableHead>
+                  <TableHead className="h-10 text-[11px] font-semibold uppercase text-muted-foreground">Gender</TableHead>
+                  <TableHead className="h-10 text-[11px] font-semibold uppercase text-muted-foreground">Scheme</TableHead>
+                  <TableHead className="h-10 text-right text-[11px] font-semibold uppercase text-muted-foreground">Action</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {patients.map((p) => (
+                  <TableRow key={p._id} className="border-border/60 transition-colors hover:bg-cyan-500/[0.04]">
+                    <TableCell><span className="rounded-md bg-muted px-2 py-1 font-mono text-xs text-foreground">{p.patientId}</span></TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      <span className="inline-flex items-center gap-2.5">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/10 text-xs font-semibold text-cyan-700">
+                          {`${p.firstName[0] || ""}${p.lastName[0] || ""}`.toUpperCase()}
+                        </span>
+                        {p.firstName} {p.lastName}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{p.phone || "Not recorded"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{p.gender || "Not recorded"}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{p.insurance?.provider || "Cash"}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setSelectedPatient(p);
+                          setShowBookingDialog(true);
+                        }}
+                      >
+                        Book Service
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!loadingPatients && patients.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                      No patients found. Try a different name, ID, or phone number.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center justify-between">
-            <span>Active Queue ({queue.length})</span>
-            <span className="text-xs font-normal text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> Live</span>
+      <Card className="border-border shadow-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-heading flex items-center justify-between">
+            <span>Active queue</span>
+            <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
+              <Clock3 className="h-3 w-3" />
+              Live
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {loadingQueue && <Loader2 className="h-5 w-5 animate-spin mx-auto" />}
-          {!loadingQueue && queue.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No patients in queue</p>}
+          {loadingQueue && <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />}
+          {!loadingQueue && queue.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">No patients in queue</p>}
           {queue.map((entry, i) => (
-            <div key={entry._id} className="flex justify-between p-3 border rounded-lg">
+            <div key={entry._id} className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
               <div>
-                <p className="text-sm font-medium">{i + 1}. {entry.patientName} ({entry.patientDisplayId})</p>
-                <p className="text-xs text-muted-foreground">{getDepartmentLabel(entry.department)} · {entry.waitTime}</p>
+                <p className="text-sm font-medium text-foreground">
+                  {i + 1}. {entry.patientName} ({entry.patientDisplayId})
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {getDepartmentLabel(entry.department)} · {entry.waitTime}
+                </p>
               </div>
               <Badge>{entry.status}</Badge>
             </div>
@@ -148,19 +223,32 @@ export default function SearchPatients() {
       <Dialog open={showBookingDialog} onOpenChange={setShowBookingDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Book Service</DialogTitle>
-            <DialogDescription>{selectedPatient?.firstName} {selectedPatient?.lastName}</DialogDescription>
+            <DialogTitle>Book service</DialogTitle>
+            <DialogDescription>
+              {selectedPatient?.firstName} {selectedPatient?.lastName}
+            </DialogDescription>
           </DialogHeader>
+
           <Select value={selectedService} onValueChange={setSelectedService}>
-            <SelectTrigger><SelectValue placeholder="Service" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Select service" />
+            </SelectTrigger>
             <SelectContent>
-              {services.map((s) => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
+              {services.map((service) => (
+                <SelectItem key={service.id} value={service.id}>
+                  {service.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setShowBookingDialog(false)}>Cancel</Button>
+
+          <DialogFooter className="mt-4 gap-2">
+            <Button variant="outline" onClick={() => setShowBookingDialog(false)}>
+              Cancel
+            </Button>
             <Button onClick={handleBookService} disabled={!selectedService || addMutation.isPending}>
-              <CheckCircle2 className="h-4 w-4 mr-1" /> Add to Queue
+              <CheckCircle2 className="mr-1 h-4 w-4" />
+              Add to Queue
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -168,3 +256,4 @@ export default function SearchPatients() {
     </div>
   );
 }
+

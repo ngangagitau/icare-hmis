@@ -45,19 +45,6 @@ import {
   WardSummary 
 } from "@/lib/inpatientService";
 
-const defaultWards: WardSummary[] = [
-  { name: "General Ward A", total: 20, occupied: 1, available: 19 },
-  { name: "General Ward B", total: 15, occupied: 1, available: 14 },
-  { name: "Maternity", total: 10, occupied: 0, available: 10 },
-  { name: "ICU", total: 6, occupied: 0, available: 6 },
-  { name: "Paediatric", total: 12, occupied: 0, available: 12 },
-];
-
-const defaultAdmissions: InpatientAdmission[] = [
-  { id: "ADM-412", patient: "Alice Johnson", pid: "P001", ward: "General Ward A", bed: "A-12", days: 3, status: "Active", doctor: "Dr. John Smith", admissionDate: "2026-03-10" },
-  { id: "ADM-411", patient: "Michael Brown", pid: "P002", ward: "General Ward B", bed: "B-04", days: 1, status: "Active", doctor: "Dr. John Smith", admissionDate: "2026-03-12" },
-];
-
 const statusStyle: Record<string, string> = {
   Active: "bg-success/10 text-success border-success/20",
   "Pending Discharge": "bg-warning/10 text-warning border-warning/20",
@@ -67,9 +54,10 @@ const statusStyle: Record<string, string> = {
 const InPatient = () => {
   const [search, setSearch] = useState("");
   const [wardFilter, setWardFilter] = useState("all");
-  const [admissions, setAdmissions] = useState<InpatientAdmission[]>(defaultAdmissions);
-  const [wards, setWards] = useState<WardSummary[]>(defaultWards);
+  const [admissions, setAdmissions] = useState<InpatientAdmission[]>([]);
+  const [wards, setWards] = useState<WardSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const navigate = useNavigate();
 
   // Action dialog states
@@ -87,15 +75,13 @@ const InPatient = () => {
         fetchInpatientAdmissions(),
         fetchWardSummaries(),
       ]);
-
-      if (admissionsData && admissionsData.length > 0) {
-        setAdmissions(admissionsData);
-      }
-      if (wardsData && wardsData.length > 0) {
-        setWards(wardsData);
-      }
-    } catch (err) {
-      console.warn("Using fallback inpatient data:", err);
+      setAdmissions(admissionsData);
+      setWards(wardsData);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+      setAdmissions([]);
+      setWards([]);
     } finally {
       setIsLoading(false);
     }
@@ -186,8 +172,9 @@ const InPatient = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        {wards.map((ward) => (
+      {wards.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {wards.map((ward) => (
           <Card key={ward.name} className="shadow-card border-border">
             <CardContent className="p-4">
               <p className="text-sm font-medium mb-2">{ward.name}</p>
@@ -214,8 +201,13 @@ const InPatient = () => {
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {loadError ? "Ward availability could not be loaded." : "No ward capacity is configured."}
+        </p>
+      )}
 
       <Card className="shadow-card border-border">
         <CardHeader className="pb-3 border-b border-border/50">
@@ -264,7 +256,15 @@ const InPatient = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAdmissions.length > 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">Loading admissions...</TableCell>
+                  </TableRow>
+                ) : loadError ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-32 text-center text-destructive">Unable to load inpatient records. Refresh to try again.</TableCell>
+                  </TableRow>
+                ) : filteredAdmissions.length > 0 ? (
                   filteredAdmissions.map((admission) => (
                     <TableRow
                       key={admission.id}
@@ -365,7 +365,7 @@ const InPatient = () => {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                      No admissions found matching your search.
+                      {admissions.length === 0 ? "No inpatient admissions are recorded." : "No admissions found matching your search."}
                     </TableCell>
                   </TableRow>
                 )}

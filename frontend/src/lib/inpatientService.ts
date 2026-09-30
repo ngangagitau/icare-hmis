@@ -41,52 +41,34 @@ export interface CreateAdmissionPayload {
   insurancePanel?: string;
 }
 
-const DEFAULT_WARDS: WardSummary[] = [
-  { name: "General Ward A", total: 20, occupied: 16, available: 4 },
-  { name: "General Ward B", total: 15, occupied: 12, available: 3 },
-  { name: "Maternity", total: 10, occupied: 8, available: 2 },
-  { name: "ICU", total: 6, occupied: 5, available: 1 },
-  { name: "Paediatric", total: 12, occupied: 7, available: 5 },
-];
-
 export async function fetchInpatientAdmissions(params?: {
   status?: string;
   ward?: string;
   search?: string;
 }): Promise<InpatientAdmission[]> {
-  try {
-    const query = new URLSearchParams();
-    if (params?.status) query.append("status", params.status);
-    if (params?.ward) query.append("ward", params.ward);
-    if (params?.search) query.append("search", params.search);
+  const query = new URLSearchParams();
+  if (params?.status) query.append("status", params.status);
+  if (params?.ward) query.append("ward", params.ward);
+  if (params?.search) query.append("search", params.search);
 
-    const qs = query.toString() ? `?${query.toString()}` : "";
-    const response = await apiClient.get<any>(`/inpatient/admissions${qs}`);
+  const qs = query.toString() ? `?${query.toString()}` : "";
+  const response = await apiClient.get<any>(`/inpatient/admissions${qs}`);
 
-    if (response && response.data && Array.isArray(response.data)) {
-      return response.data;
-    }
-    if (Array.isArray(response)) {
-      return response;
-    }
-    return [];
-  } catch (error) {
-    console.warn("Could not fetch admissions from API, falling back:", error);
-    return [];
+  if (response && response.data && Array.isArray(response.data)) {
+    return response.data;
   }
+  if (Array.isArray(response)) {
+    return response;
+  }
+  return [];
 }
 
 export async function fetchWardSummaries(): Promise<WardSummary[]> {
-  try {
-    const response = await apiClient.get<any>("/inpatient/wards");
-    if (response && response.data && Array.isArray(response.data)) {
-      return response.data;
-    }
-    return DEFAULT_WARDS;
-  } catch (error) {
-    console.warn("Could not fetch wards from API, using defaults:", error);
-    return DEFAULT_WARDS;
+  const response = await apiClient.get<any>("/inpatient/wards");
+  if (response && response.data && Array.isArray(response.data)) {
+    return response.data;
   }
+  return [];
 }
 
 export async function createInpatientAdmission(
@@ -129,16 +111,11 @@ export interface WardTransfer {
 }
 
 export async function fetchWardTransfers(): Promise<WardTransfer[]> {
-  try {
-    const response = await apiClient.get<any>("/inpatient/transfers");
-    if (response && response.data && Array.isArray(response.data)) {
-      return response.data;
-    }
-    return [];
-  } catch (err) {
-    console.warn("Using fallback transfers:", err);
-    return [];
+  const response = await apiClient.get<any>("/inpatient/transfers");
+  if (response && response.data && Array.isArray(response.data)) {
+    return response.data;
   }
+  return [];
 }
 
 export async function createWardTransfer(payload: {
@@ -163,21 +140,17 @@ export interface DischargeRecord {
   admitted: string;
   doctor: string;
   billTotal: number;
+  billCount: number;
   billStatus: "Cleared" | "Pending" | string;
   status: "Discharged" | "Ready" | "Admitted" | string;
 }
 
 export async function fetchDischargeRecords(): Promise<DischargeRecord[]> {
-  try {
-    const response = await apiClient.get<any>("/inpatient/discharges");
-    if (response && response.data && Array.isArray(response.data)) {
-      return response.data;
-    }
-    return [];
-  } catch (err) {
-    console.warn("Using fallback discharges:", err);
-    return [];
+  const response = await apiClient.get<any>("/inpatient/discharges");
+  if (response && response.data && Array.isArray(response.data)) {
+    return response.data;
   }
+  return [];
 }
 
 export async function finalizePatientDischarge(

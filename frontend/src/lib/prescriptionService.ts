@@ -20,6 +20,8 @@ export interface Prescription {
   items: PrescriptionItem[];
   notes?: string;
   status: PrescriptionStatus;
+  paymentStatus?: string;
+  payment_status?: string;
   createdAt: string;
   preparedAt?: string;
   dispensedAt?: string;

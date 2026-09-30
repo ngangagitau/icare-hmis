@@ -21,6 +21,7 @@ export function useEmergencyCases(
   filters?: {
     status?: string;
     triageLevel?: string;
+    search?: string;
   }
 ) {
   return useQuery({

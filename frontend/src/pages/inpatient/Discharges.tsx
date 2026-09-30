@@ -255,7 +255,7 @@ export default function Discharges() {
               Finalize Discharge: {selectedRecord?.patient}
             </DialogTitle>
             <DialogDescription>
-              {selectedRecord?.ward} · Admitted {selectedRecord?.admitted} · Bill: KES {selectedRecord?.billTotal.toLocaleString()}
+              {selectedRecord?.ward} · Admitted {selectedRecord?.admitted} · Patient invoices: {selectedRecord?.billCount ? `KES ${selectedRecord.billTotal.toLocaleString()}` : "None"}
             </DialogDescription>
           </DialogHeader>
 
@@ -324,7 +324,7 @@ export default function Discharges() {
                   <TableHead className="text-xs font-semibold uppercase">Ward</TableHead>
                   <TableHead className="text-xs font-semibold uppercase">Admitted Date</TableHead>
                   <TableHead className="text-xs font-semibold uppercase">Attending Doctor</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase">Bill (KES)</TableHead>
+                  <TableHead className="text-xs font-semibold uppercase">Patient Invoices (KES)</TableHead>
                   <TableHead className="text-xs font-semibold uppercase">Bill Status</TableHead>
                   <TableHead className="text-xs font-semibold uppercase">Status</TableHead>
                   <TableHead className="text-xs font-semibold uppercase">Action</TableHead>
@@ -351,7 +351,7 @@ export default function Discharges() {
                       <TableCell className="text-xs text-muted-foreground">{d.admitted}</TableCell>
                       <TableCell className="text-xs text-foreground">{d.doctor}</TableCell>
                       <TableCell className="font-mono text-xs font-bold">
-                        {d.billTotal ? d.billTotal.toLocaleString() : "0"}
+                        {d.billCount ? d.billTotal.toLocaleString() : "No invoices"}
                       </TableCell>
                       <TableCell>
                         <Badge 

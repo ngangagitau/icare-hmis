@@ -17,7 +17,7 @@ export interface Patient {
   medicalHistory?: string;
   allergies?: string;
   currentMedications?: string;
-  insurance?: string;
+  insurance?: string | { provider?: string; memberNumber?: string; employer?: string };
   height?: number;
   weight?: number;
   status?: string;
@@ -38,6 +38,10 @@ export interface PaginatedPatients {
   count: number;
   pagination: PaginationMeta;
   data: Patient[];
+}
+
+export function getPatientRecordId(patient: Patient): string | undefined {
+  return patient._id || patient.id || patient.patientId;
 }
 
 const unwrap = <T,>(response: any): T => {

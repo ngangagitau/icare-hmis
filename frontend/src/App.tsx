@@ -8,7 +8,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ModuleProvider } from "@/contexts/ModuleContext";
 
 // Main module pages
-import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Appointments from "./pages/Appointments";
 import PatientRegistry from "./pages/PatientRegistry";
@@ -215,6 +214,13 @@ import AuditTrail from "./pages/admin/Audit";
 import SystemSettings from "./pages/admin/Settings";
 import AccessControl from "./pages/admin/AccessControl";
 
+// Intelligence modules
+import ClinicalIntelligencePage from "./pages/clinical/ClinicalIntelligencePage";
+import ClinicalAlertsPage from "./pages/clinical/ClinicalAlertsPage";
+import PatientFlowLivePage from "./pages/flow/PatientFlowLivePage";
+import PatientFlowAnalyticsPage from "./pages/flow/PatientFlowAnalyticsPage";
+import HospitalIntelligenceDashboard from "./pages/dashboard/HospitalIntelligenceDashboard";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -224,7 +230,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
           {/* Auth Routes - Outside AppLayout */}
           <Route path="/login" element={<Login />} />
@@ -237,10 +243,11 @@ const App = () => (
               <AppLayout>
                 <Routes>
                   {/* Home / Dashboard */}
-                  <Route path="/" element={<Index />} />
+                  <Route path="/" element={<Dashboard />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/dashboard/analytics" element={<Analytics />} />
                   <Route path="/dashboard/activity" element={<Activity />} />
+                  <Route path="/hospital-intelligence" element={<HospitalIntelligenceDashboard />} />
 
             {/* Appointments / OPD */}
             <Route path="/appointments" element={<Appointments />} />
@@ -448,6 +455,15 @@ const App = () => (
             <Route path="/admin/access-control" element={<AccessControl />} />
             <Route path="/admin/audit" element={<AuditTrail />} />
             <Route path="/admin/settings" element={<SystemSettings />} />
+
+            {/* Clinical Intelligence routes */}
+            <Route path="/clinical-intelligence" element={<ClinicalIntelligencePage />} />
+            <Route path="/clinical-intelligence/alerts" element={<ClinicalAlertsPage />} />
+
+            {/* Patient Flow routes */}
+            <Route path="/patient-flow" element={<Navigate replace to="/patient-flow/live" />} />
+            <Route path="/patient-flow/live" element={<PatientFlowLivePage />} />
+            <Route path="/patient-flow/analytics" element={<PatientFlowAnalyticsPage />} />
 
                   <Route path="*" element={<NotFound />} />
                 </Routes>

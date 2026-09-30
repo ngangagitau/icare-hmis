@@ -11,13 +11,6 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { fetchPatients } from "@/lib/patientService";
 import { createInpatientAdmission } from "@/lib/inpatientService";
 
-const defaultPatientOptions = [
-  { value: "P-10234", label: "John Doe - P-10234", patientId: "P-10234" },
-  { value: "P-10233", label: "Peter Odhiambo - P-10233", patientId: "P-10233" },
-  { value: "P-10232", label: "Mary Achieng - P-10232", patientId: "P-10232" },
-  { value: "P-10229", label: "David Kipchoge - P-10229", patientId: "P-10229" },
-];
-
 const wardOptions = [
   "General Ward A",
   "General Ward B",
@@ -27,26 +20,10 @@ const wardOptions = [
   "Surgical Ward",
 ];
 
-const bedOptions = [
-  "A-01",
-  "A-02",
-  "A-03",
-  "A-12",
-  "B-01",
-  "B-04",
-  "M-05",
-  "ICU-02",
-  "ICU-03",
-  "P-02",
-  "S-05",
-];
-
 const admissionTypes = ["Emergency", "Elective", "Transfer In", "Observation", "Maternity", "Critical Care"];
 const urgencyLevels = ["Routine", "Urgent", "Very Urgent", "Emergency"]; 
 const referralSources = ["Self", "Clinic", "Emergency", "Private Consultant", "Transfer from Other Facility", "OPD"]; 
 const paymentModes = ["Cash", "Insurance", "NHIF", "SHA", "Corporate", "Waiver"];
-const doctors = ["Dr. John Smith", "Dr. Ochieng", "Dr. Njeri", "Dr. Kipchoge", "Dr. Akinyi", "Dr. Wanjiku"];
-
 const generatePatientId = () => {
   const timestamp = Date.now().toString().slice(-6);
   return `UHID-${timestamp}`;
@@ -62,8 +39,8 @@ const initialForm = {
   referralSource: "OPD",
   admissionDate: new Date().toISOString().slice(0, 10),
   admissionTime: new Date().toTimeString().slice(0, 5),
-  consultant: "Dr. John Smith",
-  attendingDoctor: "Dr. John Smith",
+  consultant: "",
+  attendingDoctor: "",
   provisionalDiagnosis: "",
   chiefComplaint: "",
   modeOfArrival: "Wheelchair",
@@ -77,8 +54,9 @@ const initialForm = {
 export default function Admissions() {
   const [form, setForm] = useState(initialForm);
   const [selectedPatientValue, setSelectedPatientValue] = useState("");
-  const [patients, setPatients] = useState(defaultPatientOptions);
+  const [patients, setPatients] = useState<{ value: string; label: string; patientId: string }[]>([]);
   const [isLoadingPatients, setIsLoadingPatients] = useState(true);
+  const [patientLoadError, setPatientLoadError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -100,16 +78,16 @@ export default function Admissions() {
       try {
         const resp = await fetchPatients(1, 100);
         const data = resp.data || (Array.isArray(resp) ? resp : []);
-        if (data.length > 0) {
-          const mapped = data.map((p: any) => ({
-            value: p.id || p._id || p.patientId,
-            label: `${p.firstName} ${p.lastName} - ${p.patientId || 'P-NEW'}`,
-            patientId: p.patientId || p.id,
-          }));
-          setPatients(mapped);
-        }
-      } catch (e) {
-        console.warn("Using fallback patients:", e);
+        const mapped = data.map((p: any) => ({
+          value: p.id || p._id || p.patientId,
+          label: `${p.firstName} ${p.lastName} - ${p.patientId || p.id || p._id}`,
+          patientId: p.patientId || p.id || p._id,
+        }));
+        setPatients(mapped);
+        setPatientLoadError(false);
+      } catch {
+        setPatients([]);
+        setPatientLoadError(true);
       } finally {
         setIsLoadingPatients(false);
       }
@@ -136,7 +114,7 @@ export default function Admissions() {
   };
 
   const handleSubmit = async () => {
-    if (!form.patient || !form.ward || !form.bed || !form.attendingDoctor || !form.provisionalDiagnosis) {
+    if (!selectedPatientValue || !form.ward || !form.bed || !form.attendingDoctor || !form.provisionalDiagnosis) {
       toast.error("Please complete the required admission fields before submitting.");
       return;
     }
@@ -162,8 +140,7 @@ export default function Admissions() {
       navigate("/inpatient");
     } catch (err: any) {
       console.error("Admission error:", err);
-      toast.success(`Admission created for ${form.patient} to ${form.ward} (${form.bed}).`);
-      navigate("/inpatient");
+      toast.error(err?.message || "Admission could not be saved. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -191,13 +168,18 @@ export default function Admissions() {
             <div className="space-y-2">
               <Label>Patient</Label>
               <Select value={selectedPatientValue} onValueChange={handlePatientSelect}>
-                <SelectTrigger>
+                <SelectTrigger disabled={isLoadingPatients || patientLoadError || patients.length === 0}>
                   <SelectValue placeholder={isLoadingPatients ? "Loading patients..." : "Select patient"} />
                 </SelectTrigger>
                 <SelectContent>
                   {patients.map((patient) => (
                     <SelectItem key={patient.value} value={patient.value}>{patient.label}</SelectItem>
                   ))}
+                  {patients.length === 0 && !isLoadingPatients && (
+                    <SelectItem value="no-patients" disabled>
+                      {patientLoadError ? "Unable to load patients" : "No registered patients"}
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -258,16 +240,7 @@ export default function Admissions() {
 
             <div className="space-y-2">
               <Label>Bed</Label>
-              <Select value={form.bed} onValueChange={(value) => updateField("bed", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Bed" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from(new Set([...bedOptions, ...(form.bed ? [form.bed] : [])])).map((bed) => (
-                    <SelectItem key={bed} value={bed}>{bed}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input value={form.bed} onChange={(event) => updateField("bed", event.target.value)} placeholder="Enter available bed number" />
             </div>
 
             <div className="space-y-2">
@@ -315,30 +288,12 @@ export default function Admissions() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Attending Doctor</Label>
-              <Select value={form.attendingDoctor} onValueChange={(value) => updateField("attendingDoctor", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select doctor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {doctors.map((doctor) => (
-                    <SelectItem key={doctor} value={doctor}>{doctor}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input value={form.attendingDoctor} onChange={(event) => updateField("attendingDoctor", event.target.value)} placeholder="Enter attending doctor" />
             </div>
 
             <div className="space-y-2">
               <Label>Consultant / Senior Review</Label>
-              <Select value={form.consultant} onValueChange={(value) => updateField("consultant", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select consultant" />
-                </SelectTrigger>
-                <SelectContent>
-                  {doctors.map((doctor) => (
-                    <SelectItem key={doctor} value={doctor}>{doctor}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input value={form.consultant} onChange={(event) => updateField("consultant", event.target.value)} placeholder="Enter consultant" />
             </div>
           </div>
 

@@ -18,44 +18,6 @@ const STANDARD_WARDS = [
   { name: "Surgical Ward", total: 15 },
 ];
 
-// Helper to seed initial sample records if the table is empty
-const ensureInitialAdmissions = async () => {
-  try {
-    const countRes = await query(`SELECT COUNT(*)::int AS count FROM inpatient_admissions`);
-    if ((countRes.rows[0]?.count || 0) > 0) return;
-
-    // Fetch existing patients and doctor
-    const patientsRes = await query(`SELECT id, patient_id, first_name, last_name FROM patients ORDER BY created_at ASC LIMIT 2`);
-    const doctorRes = await query(`SELECT id, first_name, last_name FROM users WHERE role = 'doctor' LIMIT 1`);
-
-    const doctorId = doctorRes.rows[0]?.id || null;
-    const patients = patientsRes.rows;
-
-    if (patients.length > 0) {
-      await query(
-        `INSERT INTO inpatient_admissions (admission_number, patient_id, admission_date, ward, bed_number, attending_doctor, admission_diagnosis, status)
-         VALUES ($1, $2, NOW() - INTERVAL '3 days', $3, $4, $5, $6, $7)
-         ON CONFLICT (admission_number) DO NOTHING`,
-        ['ADM-412', patients[0].id, 'General Ward A', 'A-12', doctorId, 'Hypertension / Observation', 'Active']
-      );
-    }
-
-    if (patients.length > 1) {
-      await query(
-        `INSERT INTO inpatient_admissions (admission_number, patient_id, admission_date, ward, bed_number, attending_doctor, admission_diagnosis, status)
-         VALUES ($1, $2, NOW() - INTERVAL '1 day', $3, $4, $5, $6, $7)
-         ON CONFLICT (admission_number) DO NOTHING`,
-        ['ADM-411', patients[1].id, 'General Ward B', 'B-04', doctorId, 'Post-operative Recovery', 'Active']
-      );
-    }
-  } catch (err) {
-    console.warn('Initial admissions seeding notice:', err.message);
-  }
-};
-
-// Seed on startup asynchronously
-ensureInitialAdmissions();
-
 // @desc    Get all admissions with patient & doctor info
 // @route   GET /api/inpatient/admissions
 router.get('/admissions', async (req, res) => {
@@ -125,18 +87,18 @@ router.get('/admissions', async (req, res) => {
       admissionId: row.id,
       admissionNumber: row.admission_number,
       patientId: row.patient_id,
-      pid: row.pid || 'P-UNKNOWN',
-      patient: [row.patient_first_name, row.patient_last_name].filter(Boolean).join(' ') || 'Patient Record',
+      pid: row.pid || '',
+      patient: [row.patient_first_name, row.patient_last_name].filter(Boolean).join(' '),
       gender: row.patient_gender,
       ward: row.ward || 'Unassigned',
-      bed: row.bed_number || 'TBD',
+      bed: row.bed_number || '',
       admissionDate: row.admission_date ? new Date(row.admission_date).toISOString().slice(0, 10) : '',
       days: row.days || 1,
       status: row.status || 'Active',
       doctor: [row.doctor_first_name, row.doctor_last_name].filter(Boolean).length
         ? `Dr. ${[row.doctor_first_name, row.doctor_last_name].filter(Boolean).join(' ')}`
-        : 'Attending Physician',
-      diagnosis: row.admission_diagnosis || 'Under Evaluation',
+        : '',
+      diagnosis: row.admission_diagnosis || '',
       dischargeDate: row.discharge_date,
       dischargeNotes: row.discharge_notes,
     }));
@@ -233,12 +195,8 @@ router.post('/admissions', async (req, res) => {
       if (pRes.rows.length > 0) patientUuid = pRes.rows[0].id;
     }
 
-    // If no patient found, pick first available patient or create record
     if (!patientUuid) {
-      const firstPatient = await query(`SELECT id FROM patients ORDER BY created_at ASC LIMIT 1`);
-      if (firstPatient.rows.length > 0) {
-        patientUuid = firstPatient.rows[0].id;
-      }
+      return res.status(400).json({ success: false, error: 'A registered patient is required for admission' });
     }
 
     // Resolve doctor UUID
@@ -398,24 +356,16 @@ router.get('/transfers', async (req, res) => {
        ORDER BY created_at DESC`
     );
 
-    if (result.rows.length === 0) {
-      const defaultTransfers = [
-        { id: "IT-001", patient: "Alice Johnson", from: "General Ward A", to: "ICU", reason: "Condition deteriorated", doctor: "Dr. John Smith", status: "Completed" },
-        { id: "IT-002", patient: "Michael Brown", from: "ICU", to: "General Ward B", reason: "Condition improved", doctor: "Dr. John Smith", status: "Pending" },
-      ];
-      return res.json({ success: true, data: defaultTransfers });
-    }
-
     const transfers = result.rows.map(row => {
       const payload = typeof row.payload === 'object' ? row.payload : {};
       return {
         id: row.code || row.id,
         patient: row.name,
-        from: payload.from || 'General Ward A',
-        to: payload.to || 'ICU',
-        reason: row.description || 'Clinical transfer',
-        doctor: payload.doctor || 'Dr. John Smith',
-        status: row.status || 'Completed',
+        from: payload.from || '',
+        to: payload.to || '',
+        reason: row.description || '',
+        doctor: payload.doctor || '',
+        status: row.status || 'Pending',
         createdAt: row.created_at,
       };
     });
@@ -448,7 +398,7 @@ router.post('/transfers', async (req, res) => {
         transferCode,
         patient,
         reason || 'Ward Transfer',
-        JSON.stringify({ from, to, doctor: doctor || 'Dr. John Smith', newBed }),
+        JSON.stringify({ from, to, doctor: doctor || null, newBed }),
       ]
     );
 
@@ -485,7 +435,7 @@ router.post('/transfers', async (req, res) => {
         from,
         to,
         reason,
-        doctor: doctor || 'Dr. John Smith',
+        doctor: doctor || '',
         status: 'Completed',
       },
     });
@@ -514,27 +464,41 @@ router.get('/discharges', async (req, res) => {
         p.last_name,
         p.patient_id AS pid,
         u.first_name AS doc_first,
-        u.last_name AS doc_last
+        u.last_name AS doc_last,
+        bills.total_due AS patient_bill_total,
+        bills.total_balance AS patient_bill_balance,
+        bills.bill_count AS patient_bill_count
        FROM inpatient_admissions ia
        LEFT JOIN patients p ON ia.patient_id = p.id
        LEFT JOIN users u ON ia.attending_doctor = u.id
+       LEFT JOIN LATERAL (
+         SELECT
+           COALESCE(SUM(amount_due), 0) AS total_due,
+           COALESCE(SUM(balance), 0) AS total_balance,
+           COUNT(*) AS bill_count
+         FROM billing
+         WHERE patient_id = ia.patient_id
+       ) bills ON TRUE
        ORDER BY ia.admission_date DESC`
     );
 
-    const discharges = result.rows.map((row, idx) => {
+    const discharges = result.rows.map((row) => {
       const isDischarged = row.status === 'Discharged';
       return {
         id: row.admission_number || `D-${row.id.slice(-4)}`,
         admissionId: row.id,
-        patient: [row.first_name, row.last_name].filter(Boolean).join(' ') || 'Patient Record',
-        pid: row.pid || 'P-UNKNOWN',
-        ward: row.ward || 'General Ward A',
-        admitted: row.admission_date ? new Date(row.admission_date).toISOString().slice(0, 10) : '2026-03-10',
+        patient: [row.first_name, row.last_name].filter(Boolean).join(' '),
+        pid: row.pid || '',
+        ward: row.ward || '',
+        admitted: row.admission_date ? new Date(row.admission_date).toISOString().slice(0, 10) : '',
         doctor: [row.doc_first, row.doc_last].filter(Boolean).length
           ? `Dr. ${[row.doc_first, row.doc_last].filter(Boolean).join(' ')}`
-          : 'Dr. John Smith',
-        billTotal: 25000 + (idx * 13500),
-        billStatus: isDischarged ? 'Cleared' : (row.status === 'Pending Discharge' ? 'Cleared' : 'Pending'),
+          : '',
+        billTotal: Number(row.patient_bill_total || 0),
+        billCount: Number(row.patient_bill_count || 0),
+        billStatus: Number(row.patient_bill_count || 0) === 0
+          ? 'No Bills'
+          : Number(row.patient_bill_balance || 0) <= 0 ? 'Cleared' : 'Pending',
         status: isDischarged ? 'Discharged' : (row.status === 'Pending Discharge' ? 'Ready' : 'Admitted'),
       };
     });

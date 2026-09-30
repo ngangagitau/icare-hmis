@@ -296,7 +296,7 @@ npm run seed
 POST http://localhost:5000/api/auth/register
 {
   "name": "Admin",
-  "email": "admin@hospital.com",
+  "email": "admin@icare.com",
   "password": "admin123",
   "role": "Super Admin"
 }
@@ -306,7 +306,7 @@ POST http://localhost:5000/api/auth/register
 ```bash
 POST http://localhost:5000/api/auth/login
 {
-  "email": "admin@hospital.com",
+  "email": "admin@icare.com",
   "password": "admin123"
 }
 ```

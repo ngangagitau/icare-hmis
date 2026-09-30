@@ -19,6 +19,7 @@ const mapPatient = (row) => {
     lastName: row.last_name,
     dateOfBirth: row.date_of_birth,
     gender: row.gender,
+    idNumber: row.id_number,
     phone: row.phone,
     email: row.email,
     bloodType: row.blood_type,
@@ -99,6 +100,7 @@ router.get('/search/:query', protect, checkPermission('patients', 'read'), async
       WHERE patient_id ILIKE $1
          OR first_name ILIKE $1
          OR last_name ILIKE $1
+         OR id_number ILIKE $1
          OR phone ILIKE $1
          OR email ILIKE $1
       ORDER BY created_at DESC
@@ -161,7 +163,6 @@ router.post(
     protect,
     checkPermission('patients', 'create'),
     [
-      body('patientId', 'Patient ID is required').not().isEmpty(),
       body('firstName', 'First name is required').not().isEmpty(),
       body('lastName', 'Last name is required').not().isEmpty(),
       body('dateOfBirth', 'Date of birth is required').isISO8601(),
@@ -179,35 +180,32 @@ router.post(
     }
 
     try {
-      // Check if patient ID already exists
-      const existing = await query(`SELECT id FROM patients WHERE patient_id = $1`, [req.body.patientId]);
-      if (existing.rows[0]) {
-        return res.status(400).json({
-          success: false,
-          error: 'Patient ID already exists',
-        });
-      }
+      const patientNumber = await query(`
+        SELECT 'PT-' || LPAD(nextval('patient_number_seq')::text, 4, '0') AS patient_id
+      `);
+      const patientId = patientNumber.rows[0].patient_id;
 
       const inserted = await query(
         `
         INSERT INTO patients (
-          patient_id, first_name, last_name, date_of_birth, gender, phone, email,
+          patient_id, first_name, last_name, date_of_birth, gender, id_number, phone, email,
           address, emergency_contact, medical_history, allergies, current_medications,
           insurance, blood_type, height, weight, status, created_by
         )
         VALUES (
-          $1,$2,$3,$4,$5,$6,$7,
-          $8,$9,$10,$11,$12,
-          $13,$14,$15,$16,$17,$18
+          $1,$2,$3,$4,$5,$6,$7,$8,
+          $9,$10,$11,$12,$13,
+          $14,$15,$16,$17,$18,$19
         )
         RETURNING *
         `,
         [
-          req.body.patientId,
+          patientId,
           req.body.firstName,
           req.body.lastName,
           req.body.dateOfBirth,
           req.body.gender,
+          req.body.idNumber || null,
           req.body.phone,
           req.body.email || null,
           req.body.address ? JSON.stringify(req.body.address) : null,
@@ -292,6 +290,7 @@ router.put(
         lastName: 'last_name',
         dateOfBirth: 'date_of_birth',
         gender: 'gender',
+        idNumber: 'id_number',
         phone: 'phone',
         email: 'email',
         bloodType: 'blood_type',

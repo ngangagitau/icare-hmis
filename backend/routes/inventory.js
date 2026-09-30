@@ -5,6 +5,13 @@ const { protect, checkPermission } = require('../middleware/auth');
 
 const router = express.Router();
 
+const canReadInventory = (req, res, next) => {
+  const role = String(req.user?.role || '').toLowerCase();
+  const inventoryReaders = ['doctor', 'nurse', 'pharmacist', 'pharmacy', 'admin', 'super-admin', 'super admin', 'superadmin'];
+  if (inventoryReaders.includes(role)) return next();
+  return checkPermission('inventory', 'read')(req, res, next);
+};
+
 const mapItem = (row) => ({
   _id: row.id,
   itemId: row.item_code,
@@ -24,7 +31,7 @@ const mapItem = (row) => ({
   updatedAt: row.updated_at,
 });
 
-router.get('/', protect, checkPermission('inventory', 'read'), async (req, res) => {
+router.get('/', protect, canReadInventory, async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 25;
@@ -52,7 +59,7 @@ router.get('/', protect, checkPermission('inventory', 'read'), async (req, res) 
   }
 });
 
-router.get('/:id', protect, checkPermission('inventory', 'read'), async (req, res) => {
+router.get('/:id', protect, canReadInventory, async (req, res) => {
   try {
     const result = await query(`SELECT * FROM inventory WHERE id = $1`, [req.params.id]);
     if (!result.rows[0]) return res.status(404).json({ success: false, error: 'Inventory item not found' });

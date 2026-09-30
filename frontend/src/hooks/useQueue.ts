@@ -12,8 +12,8 @@ import {
 
 export const queueKeys = {
   all: ['queues'] as const,
-  department: (department?: QueueDepartment) =>
-    [...queueKeys.all, department ?? 'all'] as const,
+  department: (department?: QueueDepartment, includeServed = false) =>
+    [...queueKeys.all, department ?? 'all', includeServed ? 'all-statuses' : 'active'] as const,
 };
 
 export function useQueueList(
@@ -21,7 +21,7 @@ export function useQueueList(
   options?: { refetchInterval?: number; includeServed?: boolean }
 ) {
   return useQuery({
-    queryKey: queueKeys.department(department),
+    queryKey: queueKeys.department(department, options?.includeServed),
     queryFn: () =>
       fetchQueueEntries({
         department,
@@ -62,11 +62,15 @@ export function useTransferQueue() {
       id,
       department,
       priority,
+      complaint,
+      serviceName,
     }: {
       id: string;
       department: QueueDepartment;
       priority?: QueuePriority;
-    }) => transferQueueEntry(id, department, { priority }),
+      complaint?: string;
+      serviceName?: string;
+    }) => transferQueueEntry(id, department, { priority, complaint, serviceName }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queueKeys.all });
     },

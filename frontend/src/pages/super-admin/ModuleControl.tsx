@@ -88,9 +88,6 @@ const ModuleControl = () => {
   const filteredModules = useMemo(() => {
     let result = modules;
     
-    // Filter by enabled modules
-    result = result.filter(mod => enabledModules.has(mod.key));
-    
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();

@@ -5,6 +5,21 @@ const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
+const isUuid = (value) =>
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
+    String(value || '')
+  );
+
+async function resolvePatientId(patientRef) {
+  const result = await query(
+    isUuid(patientRef)
+      ? `SELECT id FROM patients WHERE id = $1`
+      : `SELECT id FROM patients WHERE patient_id = $1`,
+    [patientRef]
+  );
+  return result.rows[0]?.id || null;
+}
+
 const mapPrescription = (row) => ({
   _id: row.id,
   prescriptionNumber: row.prescription_number,
@@ -16,6 +31,8 @@ const mapPrescription = (row) => ({
   items: row.items || [],
   notes: row.notes || '',
   status: row.status,
+  paymentStatus: row.payment_status || 'Pending',
+  payment_status: row.payment_status || 'Pending',
   preparedAt: row.prepared_at,
   dispensedAt: row.dispensed_at,
   createdAt: row.created_at,
@@ -78,6 +95,12 @@ router.post(
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
     try {
+      const patientId = await resolvePatientId(req.body.patientId);
+      if (!patientId) return res.status(404).json({ success: false, error: 'Patient not found' });
+
+      const doctorResult = await query(`SELECT id FROM users WHERE id = $1`, [req.user.id]);
+      if (!doctorResult.rows[0]) return res.status(401).json({ success: false, error: 'Authenticated user not found' });
+
       const rxNumber = await generatePrescriptionNumber();
       const inserted = await query(
         `
@@ -88,10 +111,10 @@ router.post(
         `,
         [
           rxNumber,
-          req.body.patientId,
+          patientId,
           req.body.queueEntryId || null,
           req.user.id,
-          req.body.items,
+          JSON.stringify(req.body.items),
           req.body.notes || null,
         ]
       );
@@ -99,16 +122,48 @@ router.post(
       const row = inserted.rows[0];
       const patientRow = await query(`SELECT patient_id, first_name, last_name FROM patients WHERE id = $1`, [row.patient_id]);
       const patient = patientRow.rows[0];
+
+      // Auto-bill: create/append invoice and sync payment_status (cash vs insurance)
+      const { billClinicalOrder } = require('../lib/clinicalBillingBridge');
+      const rxItems = Array.isArray(req.body.items) ? req.body.items : [];
+      const billingItems = rxItems.map((it) => ({
+        description: it.drugName || it.name || it.drug || 'Medication',
+        quantity: Number(it.quantity || it.qty || 1),
+        unitPrice: Number(it.unitPrice || it.price || 150),
+        amount: Number(it.amount || (it.quantity || 1) * (it.unitPrice || 150)),
+      }));
+      const billingResult = await billClinicalOrder({
+        patientId,
+        department: 'Pharmacy',
+        orderId: row.id,
+        orderNumber: rxNumber,
+        items: billingItems.length ? billingItems : [{ description: 'Pharmacy - Prescription', quantity: 1, unitPrice: 500, amount: 500 }],
+        notes: req.body.notes || '',
+        createdBy: req.user.id,
+      });
+
+      if (billingResult) {
+        await query(
+          `UPDATE prescriptions SET payment_status = $1 WHERE id = $2`,
+          [billingResult.clinicalPaymentStatus, row.id]
+        );
+      }
+
       res.status(201).json({
         success: true,
         data: mapPrescription({
           ...row,
+          payment_status: billingResult?.clinicalPaymentStatus || row.payment_status,
           patient_display_id: patient?.patient_id,
           patient_name: `${patient?.first_name || ''} ${patient?.last_name || ''}`.trim(),
         }),
       });
     } catch (err) {
-      res.status(500).json({ success: false, error: 'Server error' });
+      console.error('Prescription creation error:', err);
+      res.status(500).json({
+        success: false,
+        error: process.env.NODE_ENV === 'development' ? err.message : 'Server error',
+      });
     }
   }
 );
@@ -119,6 +174,25 @@ router.patch('/:id/status', protect, async (req, res) => {
     const status = String(req.body.status || '');
     if (!allowed.includes(status)) {
       return res.status(400).json({ success: false, error: 'Invalid status' });
+    }
+
+    const existing = await query(`SELECT * FROM prescriptions WHERE id = $1`, [req.params.id]);
+    if (!existing.rows[0]) return res.status(404).json({ success: false, error: 'Prescription not found' });
+    const currentRx = existing.rows[0];
+
+    if (status === 'Dispensed') {
+      if (currentRx.payment_status === 'Awaiting Cashier Payment' && !req.body.emergencyOverride) {
+        return res.status(402).json({
+          success: false,
+          error: 'Payment required: Patient must complete payment at Cashier Desk before medications can be dispensed.',
+        });
+      }
+      if (currentRx.payment_status === 'Awaiting Insurance Approval' && !req.body.emergencyOverride) {
+        return res.status(402).json({
+          success: false,
+          error: 'Insurance approval required: Cashier must approve claim pre-authorization before medications can be dispensed.',
+        });
+      }
     }
 
     const preparedAt = status === 'Ready' ? new Date() : null;
