@@ -12,6 +12,7 @@ dotenv.config();
 // PostgreSQL Database imports
 const { pool, query } = require('./db/pg');
 const { createTables } = require('./db/seedDatabase');
+const { startNeonReplication } = require('./db/neonReplication');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -84,6 +85,7 @@ const initializeDatabase = async () => {
     // Create tables if they don't exist
     await createTables();
     console.log('✓ Database tables initialized');
+    await startNeonReplication();
   } catch (err) {
     console.error('✗ Database initialization error:', err.message);
     console.error('Please ensure PostgreSQL is running at:', process.env.DATABASE_URL);

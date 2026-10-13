@@ -33,11 +33,14 @@ import {
   AlertCircle,
   TrendingUp,
   Syringe,
+  Zap,
+  ShieldAlert,
 } from "lucide-react";
 import { useQueueList, useTransferQueue, useUpdateQueueStatus } from "@/hooks/useQueue";
 import { calcAge, type QueueEntry } from "@/lib/queueService";
 import { useToast } from "@/components/ui/use-toast";
 import apiClient, { ApiResponse } from "@/lib/api";
+import { analyseVitals } from "@/lib/triageAiEngine";
 
 /* ─── Priority badge config ─────────────────────────────────────────── */
 const priorityConfig: Record<string, { label: string; bg: string; dot: string; text: string }> = {
@@ -121,10 +124,16 @@ export default function TriageNursing() {
   };
 
   const saveTriageRecord = async () => {
-    if (!selectedPatient || typeof selectedPatient.patient !== "object") return;
+    if (!selectedPatient) return;
+    const patRef = typeof selectedPatient.patient === "object"
+      ? (selectedPatient.patient?._id || (selectedPatient.patient as any)?.id)
+      : selectedPatient.patient;
+    const patientIdentifier = patRef || selectedPatient.patientDisplayId;
+    if (!patientIdentifier) return;
+
     const bmi = weight && height ? (Number(weight) / Math.pow(Number(height) / 100, 2)).toFixed(1) : undefined;
     await apiClient.post<ApiResponse<unknown>>("/medical-records", {
-      patient: selectedPatient.patient._id,
+      patient: patientIdentifier,
       visitDate: new Date().toISOString(),
       vitalSigns: {
         bloodPressure: sys && dia ? `${sys}/${dia}` : undefined,
@@ -147,14 +156,32 @@ export default function TriageNursing() {
     setIsSaving(true);
     try {
       await saveTriageRecord();
-      await transferMutation.mutateAsync({ id: selectedPatient._id, department: "doctor" });
-      toast({ title: "✓ Transferred to Doctor", description: `${selectedPatient.patientName} moved to consultation queue.` });
+      // Compute AI priority from current vitals
+      const assessment = analyseVitals({ sys, dia, hr, temp, spo2, rr, pain });
+      await transferMutation.mutateAsync({
+        id: selectedPatient._id,
+        department: "doctor",
+        priority: assessment.queuePriority,
+      });
+      if (assessment.severity === 'CRITICAL') {
+        toast({
+          title: "🚨 Emergency Transfer",
+          description: `${selectedPatient.patientName} escalated to TOP of Doctor's queue (Critical vitals).`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "✓ Transferred to Doctor",
+          description: `${selectedPatient.patientName} moved to ${assessment.queuePriority === 'Urgent' ? 'Urgent' : 'Normal'} consultation queue.`,
+        });
+      }
       setSys(""); setDia(""); setHr(""); setTemp(""); setSpo2(""); setRr("");
       setWeight(""); setHeight(""); setPain(""); setNotes("");
     } catch {
       toast({ title: "Transfer Failed", description: "Could not transfer patient", variant: "destructive" });
     } finally {
       setIsSaving(false);
+
     }
   };
 
@@ -185,14 +212,10 @@ export default function TriageNursing() {
     ? (durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(0)
     : "—";
 
-  /* ─── Derived vitals alerts ─── */
-  const alerts: string[] = [];
-  if (Number(sys) >= 180 || Number(dia) >= 110) alerts.push("Hypertensive crisis");
-  else if (Number(sys) >= 140 || Number(dia) >= 90) alerts.push("Elevated BP");
-  if (Number(spo2) > 0 && Number(spo2) < 92) alerts.push("Hypoxia (SpO2 < 92%)");
-  if (Number(temp) >= 38.5) alerts.push("Febrile");
-  if (Number(hr) > 120) alerts.push("Tachycardia");
-  if (Number(hr) > 0 && Number(hr) < 50) alerts.push("Bradycardia");
+
+  /* ─── Live AI Assessment (computed on every keystroke) ─── */
+  const aiAssessment = analyseVitals({ sys, dia, hr, temp, spo2, rr, pain });
+  const hasAnyVital = !!(sys || dia || hr || temp || spo2 || rr || pain);
 
   const age =
     selectedPatient?.patient && typeof selectedPatient.patient === "object"
@@ -469,17 +492,90 @@ export default function TriageNursing() {
 
                   {/* ── Vitals Tab ── */}
                   <TabsContent value="vitals" className="space-y-5 mt-0">
-                    {alerts.length > 0 && (
-                      <div className="flex items-start gap-3 p-3 rounded-lg border border-red-200 bg-red-50">
-                        <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-xs font-semibold text-red-800 mb-1">Clinical Alerts Detected</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {alerts.map((a) => (
-                              <span key={a} className="text-[11px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full border border-red-200 font-medium">{a}</span>
+                    {/* ── AI Triage Assessment Live Preview ── */}
+                    {hasAnyVital && (
+                      <div className={`rounded-xl border p-4 space-y-3 transition-all ${
+                        aiAssessment.severity === 'CRITICAL'
+                          ? 'border-red-300 bg-red-50 shadow-sm'
+                          : aiAssessment.severity === 'URGENT'
+                          ? 'border-amber-300 bg-amber-50'
+                          : 'border-green-200 bg-green-50'
+                      }`}>
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                              aiAssessment.severity === 'CRITICAL' ? 'bg-red-100' :
+                              aiAssessment.severity === 'URGENT' ? 'bg-amber-100' : 'bg-green-100'
+                            }`}>
+                              {aiAssessment.severity === 'CRITICAL'
+                                ? <ShieldAlert className="h-4 w-4 text-red-600" />
+                                : aiAssessment.severity === 'URGENT'
+                                ? <AlertTriangle className="h-4 w-4 text-amber-600" />
+                                : <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              }
+                            </div>
+                            <div>
+                              <p className={`text-xs font-bold ${
+                                aiAssessment.severity === 'CRITICAL' ? 'text-red-800' :
+                                aiAssessment.severity === 'URGENT' ? 'text-amber-800' : 'text-green-800'
+                              }`}>
+                                🤖 AI Triage Assessment
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">Live clinical analysis</p>
+                            </div>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-1 rounded-full border ${
+                            aiAssessment.severity === 'CRITICAL'
+                              ? 'bg-red-100 text-red-700 border-red-300'
+                              : aiAssessment.severity === 'URGENT'
+                              ? 'bg-amber-100 text-amber-700 border-amber-300'
+                              : 'bg-green-100 text-green-700 border-green-300'
+                          }`}>
+                            {aiAssessment.queuePriority} Priority
+                          </span>
+                        </div>
+
+                        {/* Summary */}
+                        <p className={`text-xs font-medium leading-relaxed ${
+                          aiAssessment.severity === 'CRITICAL' ? 'text-red-800' :
+                          aiAssessment.severity === 'URGENT' ? 'text-amber-800' : 'text-green-800'
+                        }`}>
+                          {aiAssessment.summary}
+                        </p>
+
+                        {/* Alert items */}
+                        {aiAssessment.alerts.length > 0 && (
+                          <div className="space-y-2 pt-1 border-t border-border/40">
+                            {aiAssessment.alerts.map((alert, idx) => (
+                              <div key={idx} className={`rounded-lg p-2.5 border ${
+                                alert.level === 'critical'
+                                  ? 'bg-red-100/60 border-red-200'
+                                  : 'bg-amber-100/60 border-amber-200'
+                              }`}>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                    alert.level === 'critical' ? 'bg-red-200 text-red-800' : 'bg-amber-200 text-amber-800'
+                                  }`}>
+                                    {alert.level === 'critical' ? '🚨 CRITICAL' : '⚡ URGENT'}
+                                  </span>
+                                  <span className="text-xs font-semibold text-foreground">{alert.vital}: {alert.value}</span>
+                                  <span className="text-xs text-muted-foreground">— {alert.label}</span>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground leading-relaxed">{alert.recommendation}</p>
+                              </div>
                             ))}
                           </div>
-                        </div>
+                        )}
+
+                        {aiAssessment.severity === 'CRITICAL' && (
+                          <div className="flex items-center gap-2 pt-1 border-t border-red-200">
+                            <Zap className="h-3.5 w-3.5 text-red-600 shrink-0" />
+                            <p className="text-[11px] font-semibold text-red-700">
+                              This patient will be automatically placed at the TOP of the Doctor's queue when transferred.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
 

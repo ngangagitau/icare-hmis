@@ -371,24 +371,12 @@ export default function Laboratory() {
 
           <div className="space-y-3 pt-2">
             <div className="space-y-1">
-              <Label className="text-xs">Patient</Label>
-              <Select value={newOrderPatientId} onValueChange={setNewOrderPatientId}>
-                <SelectTrigger className="h-9 text-xs" disabled={patientsLoading || patients.length === 0}>
-                  <SelectValue placeholder={patientsLoading ? "Loading patients..." : "Select patient"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {patients.map((p) => {
-                    const patientRecordId = getPatientRecordId(p);
-                    return patientRecordId ? (
-                      <SelectItem key={patientRecordId} value={patientRecordId}>
-                        {p.firstName} {p.lastName} ({p.patientId})
-                      </SelectItem>
-                    ) : null;
-                  })}
-                  {!patientsLoading && patients.length === 0 && <SelectItem value="no-patients" disabled>{patientsError ? "Unable to load patients" : "No registered patients"}</SelectItem>}
-                </SelectContent>
-              </Select>
-              {patientsError && <p className="text-xs text-destructive">Unable to load registered patients.</p>}
+              <Label className="text-xs font-semibold">Patient</Label>
+              <PatientAutocompleteInput
+                value={newOrderPatientId}
+                onChange={(id) => setNewOrderPatientId(id)}
+                placeholder="Type patient name, OPD number or phone..."
+              />
             </div>
 
             <div className="space-y-1">

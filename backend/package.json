@@ -8,6 +8,8 @@
     "dev": "nodemon server.js",
     "test": "jest",
     "seed": "node scripts/seed.js",
+    "sync:neon": "node scripts/initial-neon-sync.js",
+    "inspect:db-sync": "node scripts/inspect-database-sync.js",
     "create-superadmin": "node scripts/create-superadmin.js"
   },
   "keywords": [

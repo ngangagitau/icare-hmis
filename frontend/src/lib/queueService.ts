@@ -37,6 +37,19 @@ export interface QueueEntry {
   servedAt?: string;
   waitMinutes: number;
   waitTime: string;
+  triageAlert?: {
+    severity: 'NORMAL' | 'URGENT' | 'CRITICAL';
+    queuePriority: 'Normal' | 'Urgent' | 'Emergency';
+    alerts: Array<{
+      vital: string;
+      value: string;
+      label: string;
+      level: 'warning' | 'critical';
+      recommendation: string;
+    }>;
+    summary: string;
+    recommendations: string[];
+  } | null;
 }
 
 export interface AddToQueuePayload {

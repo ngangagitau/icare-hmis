@@ -4,11 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, HeartPulse, Activity, Thermometer, Droplets, Wind, Scale, Syringe, Search, CheckCircle2 } from "lucide-react";
+import { Loader2, HeartPulse, Activity, Thermometer, Droplets, Wind, Scale, Syringe, Search, CheckCircle2, ShieldAlert, AlertTriangle, Zap } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { useQueueList } from "@/hooks/useQueue";
+import { useQueueList, useTransferQueue } from "@/hooks/useQueue";
 import { calcAge, type QueueEntry } from "@/lib/queueService";
 import apiClient, { ApiResponse } from "@/lib/api";
+import { analyseVitals } from "@/lib/triageAiEngine";
 
 /* ─── Priority styles ─── */
 const priorityBadge: Record<string, string> = {
@@ -57,6 +58,8 @@ export default function Vitals() {
     }
   }, [queuePatients, selected]);
 
+  const transferMutation = useTransferQueue();
+
   const filteredPatients = queuePatients.filter((p) =>
     !search || p.patientName.toLowerCase().includes(search.toLowerCase()) || p.patientDisplayId?.toLowerCase().includes(search.toLowerCase())
   );
@@ -65,15 +68,26 @@ export default function Vitals() {
     ? (Number(weight) / Math.pow(Number(height) / 100, 2)).toFixed(1)
     : "";
 
-  const handleSave = async () => {
-    if (!selected || typeof selected.patient !== "object") {
+  const aiAssessment = analyseVitals({ sys, dia, hr, temp, spo2, rr, pain });
+  const hasAnyVital = !!(sys || dia || hr || temp || spo2 || rr || pain);
+
+  const handleSave = async (transferToDoctor = false) => {
+    if (!selected) {
       toast({ title: "No patient selected", variant: "destructive" });
+      return;
+    }
+    const patRef = typeof selected.patient === "object"
+      ? (selected.patient?._id || (selected.patient as any)?.id)
+      : selected.patient;
+    const patientIdentifier = patRef || selected.patientDisplayId;
+    if (!patientIdentifier) {
+      toast({ title: "No patient reference found", variant: "destructive" });
       return;
     }
     setIsSaving(true);
     try {
       await apiClient.post<ApiResponse<unknown>>("/medical-records", {
-        patient: selected.patient._id,
+        patient: patientIdentifier,
         visitDate: new Date().toISOString(),
         vitalSigns: {
           bloodPressure: sys && dia ? `${sys}/${dia}` : undefined,
@@ -86,9 +100,39 @@ export default function Vitals() {
           bmi: bmi ? Number(bmi) : undefined,
           painScore: pain ? Number(pain) : undefined,
         },
-        assessment: "Vitals recorded by nurse",
+        assessment: aiAssessment.severity !== "NORMAL" ? aiAssessment.summary : "Vitals recorded by nurse",
       });
-      toast({ title: "Vitals Saved", description: `Vital signs recorded for ${selected.patientName}` });
+
+      if (transferToDoctor) {
+        await transferMutation.mutateAsync({
+          id: selected._id,
+          department: "doctor",
+          priority: aiAssessment.queuePriority,
+        });
+        if (aiAssessment.severity === "CRITICAL") {
+          toast({
+            title: "🚨 Emergency Transfer",
+            description: `${selected.patientName} escalated to TOP of Doctor's queue (Critical vitals).`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "✓ Transferred to Doctor",
+            description: `${selected.patientName} moved to Doctor queue with ${aiAssessment.queuePriority} priority.`,
+          });
+        }
+      } else {
+        if (aiAssessment.severity === "CRITICAL") {
+          toast({
+            title: "🚨 Critical Vitals Saved",
+            description: `AI flagged critical vitals. Scheduled at TOP of Doctor queue.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({ title: "Vitals Saved", description: `Vital signs recorded for ${selected.patientName}` });
+        }
+      }
+
       setSys(""); setDia(""); setHr(""); setTemp(""); setSpo2(""); setRr("");
       setWeight(""); setHeight(""); setPain("");
     } catch {
@@ -205,6 +249,77 @@ export default function Vitals() {
                 </Badge>
               </div>
 
+              {/* AI Triage Live Assessment */}
+              {hasAnyVital && (
+                <div className={`rounded-xl border p-4 space-y-3 transition-all ${
+                  aiAssessment.severity === 'CRITICAL'
+                    ? 'border-red-300 bg-red-50'
+                    : aiAssessment.severity === 'URGENT'
+                    ? 'border-amber-300 bg-amber-50'
+                    : 'border-green-200 bg-green-50'
+                }`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        aiAssessment.severity === 'CRITICAL' ? 'bg-red-100' :
+                        aiAssessment.severity === 'URGENT' ? 'bg-amber-100' : 'bg-green-100'
+                      }`}>
+                        {aiAssessment.severity === 'CRITICAL'
+                          ? <ShieldAlert className="h-4 w-4 text-red-600" />
+                          : aiAssessment.severity === 'URGENT'
+                          ? <AlertTriangle className="h-4 w-4 text-amber-600" />
+                          : <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        }
+                      </div>
+                      <div>
+                        <p className={`text-xs font-bold ${
+                          aiAssessment.severity === 'CRITICAL' ? 'text-red-800' :
+                          aiAssessment.severity === 'URGENT' ? 'text-amber-800' : 'text-green-800'
+                        }`}>
+                          🤖 AI Triage Assessment
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">{aiAssessment.summary}</p>
+                      </div>
+                    </div>
+                    <Badge className={`text-[10px] shrink-0 ${
+                      aiAssessment.severity === 'CRITICAL'
+                        ? 'bg-red-100 text-red-700 border-red-300'
+                        : aiAssessment.severity === 'URGENT'
+                        ? 'bg-amber-100 text-amber-700 border-amber-300'
+                        : 'bg-green-100 text-green-700 border-green-300'
+                    }`}>
+                      {aiAssessment.queuePriority} Priority
+                    </Badge>
+                  </div>
+
+                  {aiAssessment.alerts.length > 0 && (
+                    <div className="space-y-1.5 pt-1 border-t border-border/40">
+                      {aiAssessment.alerts.map((alert, idx) => (
+                        <div key={idx} className="flex items-start gap-2 text-xs">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                            alert.level === 'critical' ? 'bg-red-200 text-red-800' : 'bg-amber-200 text-amber-800'
+                          }`}>
+                            {alert.level === 'critical' ? 'CRITICAL' : 'URGENT'}
+                          </span>
+                          <div>
+                            <span className="font-semibold text-foreground">{alert.vital}: {alert.value}</span>
+                            <span className="text-muted-foreground ml-1.5">({alert.label})</span>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">{alert.recommendation}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {aiAssessment.severity === 'CRITICAL' && (
+                    <div className="flex items-center gap-1.5 pt-1 border-t border-red-200 text-[11px] font-bold text-red-700">
+                      <Zap className="h-3.5 w-3.5 text-red-600" />
+                      Patient will be automatically positioned at the TOP of the Doctor queue!
+                    </div>
+                  )}
+                </div>
+              )}
+
               <Card className="shadow-card border-border">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-semibold">Vital Signs</CardTitle>
@@ -297,11 +412,15 @@ export default function Vitals() {
                 </CardContent>
               </Card>
 
-              <div className="flex justify-end gap-3">
+              <div className="flex flex-wrap items-center justify-end gap-3">
                 <Button variant="outline" onClick={handleClear}>Clear</Button>
-                <Button onClick={handleSave} disabled={isSaving} className="gap-1.5">
+                <Button variant="secondary" onClick={() => handleSave(false)} disabled={isSaving} className="gap-1.5">
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  Save Vitals
+                  Save Vitals Only
+                </Button>
+                <Button onClick={() => handleSave(true)} disabled={isSaving} className="gap-1.5 bg-primary">
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                  Save & Transfer to Doctor
                 </Button>
               </div>
             </>

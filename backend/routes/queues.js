@@ -5,6 +5,15 @@ const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
+/* ─── Ensure triage_alert column exists ─────────────────────────────────── */
+(async () => {
+  try {
+    await query(`ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS triage_alert JSONB;`);
+  } catch (e) {
+    if (!e.message?.includes('already exists')) console.error('[queues migration]', e.message);
+  }
+})();
+
 const formatEntry = (row) => {
   const queuedAt = new Date(row.queued_at);
   const waitMinutes = Math.max(
@@ -38,6 +47,7 @@ const formatEntry = (row) => {
     servedAt: row.served_at,
     waitMinutes,
     waitTime: waitMinutes === 0 ? '0 min' : `${waitMinutes} min`,
+    triageAlert: row.triage_alert || null,
   };
 };
 
